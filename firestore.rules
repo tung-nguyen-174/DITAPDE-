@@ -1,0 +1,195 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Catch-All Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Security Primitives
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Rate Limit chính xác bằng cách đọc trường lastWorkoutAt từ document cá nhân của User
+    function isNotRateLimited(userId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(userId));
+      return userDoc == null
+        || !('lastWorkoutAt' in userDoc.data)
+        || request.time > userDoc.data.lastWorkoutAt + duration.value(30, 's');
+    }
+
+    // Kiểm tra schema chuẩn Hardened cho User Document (Flutter)
+    function isValidHardenedUser(data) {
+      return data.keys().hasOnly(['displayName', 'fcmToken', 'fcmTokens', 'lastWorkoutAt', 'updatedAt', 'lastTokenUpdate'])
+        && data.displayName is string
+        && data.displayName.size() >= 2
+        && data.displayName.size() <= 50
+        && (!('fcmTokens' in data) || (data.fcmTokens is list && data.fcmTokens.size() <= 25));
+    }
+
+    // Kiểm tra schema cho Web Client UserProfile
+    function isValidWebUserProfile(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.streakWeeks is number && data.streakWeeks >= 0
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 50))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 150))
+        && (!('handle' in data) || (data.handle is string && data.handle.size() <= 50))
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500))
+        && (!('gymVenue' in data) || (data.gymVenue is string && data.gymVenue.size() <= 150))
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 300))
+        && (!('fcmToken' in data) || (data.fcmToken is string && data.fcmToken.size() <= 512))
+        && (!('fcmTokens' in data) || (data.fcmTokens is list && data.fcmTokens.size() <= 25));
+    }
+
+    function isValidFeedPost(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128 && data.userId == request.auth.uid
+        && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 100
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 150
+        && data.totalTonnageKg is number && data.totalTonnageKg >= 0
+        && data.durationMinutes is number && data.durationMinutes >= 0
+        && (!('caption' in data) || (data.caption is string && data.caption.size() <= 500))
+        && (!('userGym' in data) || (data.userGym is string && data.userGym.size() <= 150))
+        && (!('prHighlight' in data) || data.prHighlight == null || (data.prHighlight is string && data.prHighlight.size() <= 150));
+    }
+
+    function isValidPostComment(data, postId) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.postId is string && data.postId == postId
+        && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 100
+        && data.text is string && data.text.size() > 0 && data.text.size() <= 500
+        && (!('userId' in data) || (data.userId is string && data.userId.size() <= 128))
+        && (!('userAvatar' in data) || (data.userAvatar is string && data.userAvatar.size() <= 500));
+    }
+
+    function isValidNudgeLog(data) {
+      return data.senderId is string && data.senderId.size() > 0 && data.senderId.size() <= 128 && data.senderId == request.auth.uid
+        && data.recipientId is string && data.recipientId.size() > 0 && data.recipientId.size() <= 128 && data.recipientId != request.auth.uid
+        && (!('targetUserId' in data) || (data.targetUserId is string && data.targetUserId.size() <= 128))
+        && (!('senderName' in data) || (data.senderName is string && data.senderName.size() <= 100))
+        && (!('message' in data) || (data.message is string && data.message.size() <= 250));
+    }
+
+    function isValidWorkoutSession(data, uid) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128 && data.userId == uid
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 150
+        && data.totalTonnageKg is number && data.totalTonnageKg >= 0
+        && data.durationSeconds is number && data.durationSeconds >= 0
+        && (!('gymVenue' in data) || (data.gymVenue is string && data.gymVenue.size() <= 150))
+        && (!('visibility' in data) || (data.visibility is string && data.visibility in ['public', 'friends', 'private']));
+    }
+
+    // Connection validation test endpoint
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Users Collection (Hỗ trợ cả Hardened Schema & Web Profile Schema + fcmTokens array)
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidId(userId) && (
+        isValidHardenedUser(request.resource.data) ||
+        (isValidWebUserProfile(incoming()) && incoming().id == userId)
+      );
+      allow update: if isOwner(userId) && isValidId(userId) && (
+        isValidHardenedUser(request.resource.data) ||
+        (isValidWebUserProfile(incoming()) && incoming().id == existing().id) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'fcmToken', 'fcmTokens', 'lastWorkoutAt', 'updatedAt', 'lastTokenUpdate', 'friends', 'name', 'bio', 'gymVenue', 'isAnonymous', 'avatar', 'email'])
+      );
+      allow delete: if false;
+
+      // User Workout Sessions (Web Client)
+      match /sessions/{sessionId} {
+        allow read: if isAuthenticated() && (request.auth.uid == userId || resource.data.visibility == 'public');
+        allow create: if isOwner(userId) && isValidId(sessionId) && isValidWorkoutSession(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(sessionId) && isValidWorkoutSession(incoming(), userId) && incoming().userId == existing().userId;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+    }
+
+    // Hardened Workouts Collection with Rate Limit & Strict Field Allowlist (hasOnly)
+    match /workouts/{workoutId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && isNotRateLimited(request.auth.uid)
+        && request.resource.data.keys().hasOnly(['userId', 'workoutTitle', 'totalVolumeKg', 'totalSets', 'createdAt'])
+        && request.resource.data.workoutTitle is string
+        && request.resource.data.workoutTitle.size() >= 3
+        && request.resource.data.workoutTitle.size() <= 100
+        && request.resource.data.totalVolumeKg is number
+        && request.resource.data.totalVolumeKg >= 0
+        && request.resource.data.totalSets is int
+        && request.resource.data.totalSets > 0
+        && request.resource.data.totalSets <= 200
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // Nudge Log Collection (Triggers exports.onNudgeCreated Cloud Function)
+    match /nudges_log/{logId} {
+      allow read: if isAuthenticated() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid ||
+        resource.data.targetUserId == request.auth.uid
+      );
+      allow create: if isSignedIn() && isValidId(logId) && isValidNudgeLog(incoming());
+      allow update, delete: if false;
+    }
+
+    // Community Feed Posts
+    match /posts/{postId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(postId) && isValidFeedPost(incoming());
+      allow update: if isSignedIn() && isValidId(postId) && (
+        (existing().userId == request.auth.uid && isValidFeedPost(incoming()) && incoming().userId == existing().userId) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['dapsCount', 'dappedBy', 'commentsCount', 'comments', 'forkCount']))
+      );
+      allow delete: if isSignedIn() && isValidId(postId) && existing().userId == request.auth.uid;
+
+      // Comments Subcollection (Triggers exports.onCommentCreated Cloud Function)
+      match /comments/{commentId} {
+        allow get, list: if true;
+        allow create: if isSignedIn() && isValidId(commentId) && isValidPostComment(incoming(), postId);
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(commentId) && existing().userId == request.auth.uid;
+      }
+    }
+
+    match /feed_posts/{postId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(postId) && isValidFeedPost(incoming());
+      allow update: if isSignedIn() && isValidId(postId) && (
+        (existing().userId == request.auth.uid && isValidFeedPost(incoming()) && incoming().userId == existing().userId) ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['dapsCount', 'dappedBy', 'commentsCount', 'comments', 'forkCount']))
+      );
+      allow delete: if isSignedIn() && isValidId(postId) && existing().userId == request.auth.uid;
+    }
+  }
+}

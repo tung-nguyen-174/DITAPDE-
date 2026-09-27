@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="ditapde-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F37259" />
+      <stop offset="50%" stop-color="#E4483C" />
+      <stop offset="100%" stop-color="#C23629" />
+    </linearGradient>
+    <mask id="dumbbell-holes">
+      <rect width="1024" height="1024" fill="white" />
+      <circle cx="307" cy="614" r="58" fill="black" />
+      <circle cx="717" cy="410" r="58" fill="black" />
+    </mask>
+  </defs>
+
+  <!-- Squircle Gradient Background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="225" ry="225" fill="url(#ditapde-bg)" />
+
+  <!-- Tilted Dumbbell Icon with Cutout Holes -->
+  <g mask="url(#dumbbell-holes)" fill="#141318">
+    <line
+      x1="307"
+      y1="614"
+      x2="717"
+      y2="410"
+      stroke="#141318"
+      stroke-width="92"
+      stroke-linecap="butt"
+    />
+    <circle cx="307" cy="614" r="150" />
+    <circle cx="717" cy="410" r="150" />
+  </g>
+</svg>

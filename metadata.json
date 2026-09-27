@@ -1,0 +1,8 @@
+{
+  "name": "Remix Đi tập đê!",
+  "description": "Mạng xã hội thể hình và nhật ký tập luyện số 1 Việt Nam. Strava cho dân tập gym: telemetry logging, muscle heatmap, RPE, E1RM, Daps và Đi tập đê!",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

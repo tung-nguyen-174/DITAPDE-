@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Đi tập đê! — Design System v2 Tokens (Warm Graphite + Chalk + Iron Red + Plate-Code) */
+  --color-canvas: #17161A;
+  --color-surface: #1F1E24;
+  --color-surface-raised: #28272E;
+  --color-hairline: #35343C;
+
+  --color-chalk: #F2F1ED;
+  --color-chalk-dim: #9C9AA3;
+  --color-chalk-faint: #656470;
+
+  --color-iron-red: #E4483C;
+  --color-iron-red-pressed: #C23629;
+
+  --color-plate-green: #4CAF6D;
+  --color-plate-yellow: #E0B93D;
+  --color-plate-blue: #3E8EDE;
+  --color-plate-red: #E4483C;
+
+  /* Harmonize Zinc & Emerald utility scales to DiTapDe Design System v2 tokens */
+  --color-zinc-950: #17161A;
+  --color-zinc-900: #1F1E24;
+  --color-zinc-800: #35343C;
+  --color-zinc-700: #45444F;
+  --color-zinc-600: #656470;
+  --color-zinc-500: #656470;
+  --color-zinc-400: #9C9AA3;
+  --color-zinc-300: #C8C6CE;
+  --color-zinc-200: #E2E0DC;
+  --color-zinc-100: #F2F1ED;
+  --color-zinc-50: #FAF9F6;
+
+  --color-emerald-500: #E4483C;
+  --color-emerald-400: #E4483C;
+  --color-emerald-300: #F37259;
+  --color-emerald-600: #C23629;
+}
+
+@layer base {
+  :root {
+    --bg-canvas: #17161A;
+    --bg-surface: #1F1E24;
+    --bg-surface-raised: #28272E;
+    --border-hairline: #35343C;
+    --text-chalk: #F2F1ED;
+    --text-chalk-dim: #9C9AA3;
+    --text-chalk-faint: #656470;
+    --accent-iron-red: #E4483C;
+    --accent-iron-red-pressed: #C23629;
+    --plate-green: #4CAF6D;
+    --plate-yellow: #E0B93D;
+    --plate-blue: #3E8EDE;
+    --plate-red: #E4483C;
+  }
+
+  body {
+    background-color: #17161A;
+    color: #F2F1ED;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ensure primary Iron Red (#E4483C) buttons render with crisp white/chalk foreground */
+.bg-emerald-500.text-zinc-950 {
+  color: #F2F1ED;
+}
+.bg-emerald-500:hover {
+  background-color: #C23629;
+}
+
+/* Custom subtle dark scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #17161A;
+}
+::-webkit-scrollbar-thumb {
+  background: #35343C;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #656470;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -1,0 +1,144 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile in Đi tập đê! network with rate-limit timestamp and FCM device tokens array",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 150 },
+        "name": { "type": "string", "maxLength": 100 },
+        "handle": { "type": "string", "maxLength": 50 },
+        "avatar": { "type": "string", "maxLength": 500 },
+        "gymVenue": { "type": "string", "maxLength": 150 },
+        "streakWeeks": { "type": "number" },
+        "bio": { "type": "string", "maxLength": 300 },
+        "isAnonymous": { "type": "boolean" },
+        "fcmToken": { "type": "string", "maxLength": 512 },
+        "fcmTokens": { "type": "array", "description": "Array of registered Web Service Worker & Flutter FCM device tokens" },
+        "lastWorkoutAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "lastTokenUpdate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName"]
+    },
+    "Workout": {
+      "title": "Workout",
+      "description": "Hardened workout document with rate-limiting and strict field allowlist",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "workoutTitle": { "type": "string", "minLength": 3, "maxLength": 100 },
+        "totalVolumeKg": { "type": "number" },
+        "totalSets": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "workoutTitle", "totalVolumeKg", "totalSets", "createdAt"]
+    },
+    "NudgeLog": {
+      "title": "NudgeLog",
+      "description": "Nudge event document triggering automated onNudgeCreated FCM multicast notification",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string", "maxLength": 128 },
+        "senderName": { "type": "string", "maxLength": 100 },
+        "recipientId": { "type": "string", "maxLength": 128 },
+        "targetUserId": { "type": "string", "maxLength": 128 },
+        "message": { "type": "string", "maxLength": 250 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "recipientId", "createdAt"]
+    },
+    "FeedPost": {
+      "title": "FeedPost",
+      "description": "Workout session feed post shared with the community",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userAvatar": { "type": "string", "maxLength": 500 },
+        "userGym": { "type": "string", "maxLength": 150 },
+        "userBadge": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 150 },
+        "caption": { "type": "string", "maxLength": 500 },
+        "totalTonnageKg": { "type": "number" },
+        "durationMinutes": { "type": "number" },
+        "totalSets": { "type": "number" },
+        "dapsCount": { "type": "number" },
+        "dappedBy": { "type": "array" },
+        "commentsCount": { "type": "number" },
+        "forkCount": { "type": "number" },
+        "prHighlight": { "type": "string", "maxLength": 150 },
+        "timestamp": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userName", "title", "totalTonnageKg", "durationMinutes"]
+    },
+    "PostComment": {
+      "title": "PostComment",
+      "description": "Comment document on a feed post triggering automated onCommentCreated FCM notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "postId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userAvatar": { "type": "string", "maxLength": 500 },
+        "text": { "type": "string", "maxLength": 500 },
+        "timestamp": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "postId", "userName", "text"]
+    },
+    "WorkoutSession": {
+      "title": "WorkoutSession",
+      "description": "Logged live workout session with exercises and telemetry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 150 },
+        "gymVenue": { "type": "string", "maxLength": 150 },
+        "durationSeconds": { "type": "number" },
+        "totalTonnageKg": { "type": "number" },
+        "totalSets": { "type": "number" },
+        "visibility": { "type": "string", "enum": ["public", "friends", "private"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "totalTonnageKg", "durationSeconds"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles, rate-limit state, and fcmTokens array"
+    },
+    "/workouts/{workoutId}": {
+      "schema": { "$ref": "#/entities/Workout" },
+      "description": "Hardened workouts collection with rate limit and strict schema"
+    },
+    "/nudges_log/{logId}": {
+      "schema": { "$ref": "#/entities/NudgeLog" },
+      "description": "Nudge log collection triggering onNudgeCreated FCM multicast push"
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/FeedPost" },
+      "description": "Community feed posts of completed workouts"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/PostComment" },
+      "description": "Post comments subcollection triggering onCommentCreated FCM multicast push"
+    },
+    "/feed_posts/{postId}": {
+      "schema": { "$ref": "#/entities/FeedPost" },
+      "description": "Community feed posts of completed workouts (Flutter client)"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/WorkoutSession" },
+      "description": "User logged workout sessions"
+    }
+  }
+}
