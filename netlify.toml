@@ -1,0 +1,13 @@
+[build]
+  command = "bun run build"
+  publish = "dist"
+
+[build.environment]
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDlpcLDohZYWG-UnpXORXUUd9O5xE53QL8"
+  SECRETS_SCAN_OMIT_PATHS = "lib/**,firebase-applet-config.json,public/firebase-messaging-sw.js"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
