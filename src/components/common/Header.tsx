@@ -116,10 +116,15 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <div className="header-container flex flex-col backdrop-blur-xl bg-zinc-950/85 border-b border-white/10 sticky top-0 z-30 w-full shrink-0 relative">
-      <header className="max-w-3xl mx-auto w-full px-6 py-4 flex items-center justify-between gap-6">
+    <div
+      className="header-container flex flex-col backdrop-blur-xl bg-zinc-950/85 border-b border-white/10 sticky top-0 z-30 w-full shrink-0 relative"
+      style={{
+        paddingTop: 'max(0px, env(safe-area-inset-top, 0px))',
+      }}
+    >
+      <header className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between gap-4 sm:gap-6">
         {/* Zone 1: Brand */}
-        <div className="group flex items-center gap-3 min-w-0 cursor-pointer transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95 origin-left">
+        <div className="group flex items-center gap-2.5 sm:gap-3 min-w-0 cursor-pointer transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95 origin-left">
           <div className="transition-transform duration-200 ease-in-out group-hover:scale-105">
             <GymChuotLogo size="sm" />
           </div>
@@ -158,7 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </header>
 
-      {/* Notification Center Popover / Drawer */}
+      {/* Notification Center Popover / Mobile Slide-up Bottom Sheet */}
       {isNotifOpen && (
         <>
           <div
@@ -166,19 +171,22 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={handleToggleNotifPanel}
           />
 
-          <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 relative z-50">
+          <div className="fixed inset-x-0 bottom-0 sm:inset-auto sm:top-16 sm:right-6 sm:left-auto z-50 w-full sm:max-w-xl max-h-[85dvh] flex flex-col justify-end pointer-events-none">
             <section
-              className="my-3 rounded-3xl bg-zinc-950/95 backdrop-blur-2xl border border-white/10 p-6 flex flex-col gap-6 max-h-[78dvh] overflow-hidden shadow-2xl shadow-black/40"
+              className="pointer-events-auto rounded-t-3xl sm:rounded-3xl bg-zinc-950/95 backdrop-blur-2xl border-t sm:border border-white/10 p-5 sm:p-6 flex flex-col gap-5 max-h-[85dvh] overflow-hidden shadow-2xl shadow-black/60 pb-[max(20px,env(safe-area-inset-bottom,20px))] sm:pb-6 animate-in slide-in-from-bottom duration-200"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Drag Pill on Mobile */}
+              <div className="w-10 h-1.5 rounded-full mx-auto sm:hidden -mt-1 bg-white/20 shrink-0" />
+
               {/* Top Row: Title + Mark All Seen + Close */}
-              <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
+              <div className="flex items-center justify-between gap-4 pb-3 sm:pb-4 border-b border-white/10 shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="apple-icon-badge-accent">
                     <Bell className="w-5 h-5 stroke-[1.75]" />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <h3 className="font-display text-lg font-bold tracking-tight text-zinc-100 truncate">
+                    <h3 className="font-display text-base sm:text-lg font-bold tracking-tight text-zinc-100 truncate">
                       Thông báo của bạn
                     </h3>
                     <span className="font-display tabular-nums text-xs text-zinc-400">
@@ -192,17 +200,17 @@ export const Header: React.FC<HeaderProps> = ({
                     <button
                       type="button"
                       onClick={() => onMarkAllNotificationsRead()}
-                      className="apple-btn-secondary min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-zinc-200 flex items-center gap-1.5"
+                      className="apple-btn-secondary min-h-[44px] px-3.5 py-1.5 text-xs font-medium text-zinc-200 flex items-center gap-1.5"
                     >
                       <CheckCheck className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />
-                      <span>Đã xem tất cả</span>
+                      <span className="hidden min-[360px]:inline">Đã xem tất cả</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={handleToggleNotifPanel}
                     aria-label="Đóng thông báo"
-                    className="w-10 h-10 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                    className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400"
                   >
                     <X className="w-5 h-5 stroke-[1.75]" />
                   </button>

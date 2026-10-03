@@ -22,12 +22,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   hasActiveSession,
 }) => {
   return (
-    <nav className="sticky bottom-0 z-30 bg-[#17161A]/85 backdrop-blur-xl border-t border-white/10 w-full pb-safe select-none shrink-0 shadow-lg shadow-black/20">
-      <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-2 flex items-center justify-between gap-2 sm:gap-3">
+    <nav
+      className="sticky bottom-0 z-30 bg-[#17161A]/90 backdrop-blur-xl border-t border-white/10 w-full select-none shrink-0 shadow-lg shadow-black/30"
+      style={{
+        paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
+      }}
+    >
+      <div className="max-w-3xl mx-auto w-full px-3 sm:px-6 py-2 flex items-center justify-between gap-1.5 sm:gap-3">
         {/* Tab 1: Feed (Bảng tin) */}
         <button
           onClick={() => onSelectTab('feed')}
-          className={`flex-1 min-w-[48px] min-h-[48px] rounded-2xl flex flex-col items-center justify-center gap-1.5 p-2 transition-all duration-200 ease-out active:scale-[0.96] border ${
+          className={`flex-1 min-w-[48px] min-h-[50px] rounded-2xl flex flex-col items-center justify-center gap-1.5 p-1.5 transition-all duration-200 ease-out active:scale-[0.96] border ${
             activeTab === 'feed'
               ? 'text-white bg-white/15 border-white/10 shadow-xs'
               : 'text-zinc-400 hover:text-zinc-100 bg-white/[0.04] hover:bg-white/[0.08] border-white/5'
@@ -40,7 +45,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {/* Tab 2: Discover (Khám phá) */}
         <button
           onClick={() => onSelectTab('discover')}
-          className={`flex-1 min-w-[48px] min-h-[48px] rounded-2xl flex flex-col items-center justify-center gap-1.5 p-2 transition-all duration-200 ease-out active:scale-[0.96] border ${
+          className={`flex-1 min-w-[48px] min-h-[50px] rounded-2xl flex flex-col items-center justify-center gap-1.5 p-1.5 transition-all duration-200 ease-out active:scale-[0.96] border ${
             activeTab === 'discover'
               ? 'text-white bg-white/15 border-white/10 shadow-xs'
               : 'text-zinc-400 hover:text-zinc-100 bg-white/[0.04] hover:bg-white/[0.08] border-white/5'
@@ -54,7 +59,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <button
           onClick={onOpenLogger}
           aria-label="Khởi tạo buổi tập mới - Tập Ngay"
-          className="apple-btn-primary relative flex-1 max-w-[108px] min-w-[48px] min-h-[48px] p-2 flex flex-col items-center justify-center gap-1"
+          className="apple-btn-primary relative flex-1 max-w-[108px] min-w-[48px] min-h-[50px] p-1.5 flex flex-col items-center justify-center gap-1 shadow-md shadow-[#E4483C]/30"
         >
           {hasActiveSession && (
             <span
@@ -71,7 +76,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {/* Tab 3: Challenges (Thử thách) */}
         <button
           onClick={() => onSelectTab('challenges')}
-          className={`flex-1 min-w-[48px] min-h-[48px] rounded-2xl flex flex-col items-center justify-center gap-1.5 p-2 transition-all duration-200 ease-out active:scale-[0.96] border ${
+          className={`flex-1 min-w-[48px] min-h-[50px] rounded-2xl flex flex-col items-center justify-center gap-1.5 p-1.5 transition-all duration-200 ease-out active:scale-[0.96] border ${
             activeTab === 'challenges'
               ? 'text-white bg-white/15 border-white/10 shadow-xs'
               : 'text-zinc-400 hover:text-zinc-100 bg-white/[0.04] hover:bg-white/[0.08] border-white/5'
@@ -84,7 +89,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {/* Tab 4: Profile (Cá nhân) */}
         <button
           onClick={() => onSelectTab('profile')}
-          className={`flex-1 min-w-[48px] min-h-[48px] rounded-2xl flex flex-col items-center justify-center gap-1.5 p-2 transition-all duration-200 ease-out active:scale-[0.96] border ${
+          className={`flex-1 min-w-[48px] min-h-[50px] rounded-2xl flex flex-col items-center justify-center gap-1.5 p-1.5 transition-all duration-200 ease-out active:scale-[0.96] border ${
             activeTab === 'profile'
               ? 'text-white bg-white/15 border-white/10 shadow-xs'
               : 'text-zinc-400 hover:text-zinc-100 bg-white/[0.04] hover:bg-white/[0.08] border-white/5'

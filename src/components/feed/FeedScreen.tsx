@@ -222,7 +222,7 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
       : sortedPosts;
 
   return (
-    <div className="flex flex-col p-6 sm:p-8 gap-6 max-w-3xl mx-auto w-full bg-zinc-950 text-zinc-100">
+    <div className="flex flex-col px-3.5 py-5 sm:px-6 sm:py-8 gap-5 sm:gap-6 max-w-3xl mx-auto w-full bg-zinc-950 text-zinc-100">
       {/* 1. Top Gym Buddies "Đi tập đê!" Card */}
       <section className="apple-card p-6 flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10">
@@ -499,16 +499,16 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
             return (
               <article
                 key={post.id}
-                className="w-full apple-card-interactive p-6 sm:p-8 flex flex-col gap-6 relative"
+                className="w-full apple-card-interactive p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 relative"
               >
                 {/* Card Header */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5 min-w-0 flex-1 basis-[180px]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <img
                       src={post.userAvatar}
                       alt={post.userName}
                       referrerPolicy="no-referrer"
-                      className="w-12 h-12 rounded-2xl object-cover border border-white/10 shadow-xs shrink-0"
+                      className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl object-cover border border-white/10 shadow-xs shrink-0"
                     />
                     <div className="min-w-0 flex-1 flex flex-col gap-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -614,28 +614,28 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                 </div>
 
                 {/* Stats Matrix Bar */}
-                <div className="grid grid-cols-3 gap-4 py-4 border-y border-white/[0.08] text-left">
-                  <div className="min-w-0 flex flex-col gap-1">
-                    <span className="text-xs text-zinc-400 block truncate">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 py-3 sm:py-4 border-y border-white/[0.08] text-left">
+                  <div className="min-w-0 flex flex-col gap-0.5 sm:gap-1">
+                    <span className="text-[11px] sm:text-xs text-zinc-400 block truncate">
                       Tổng tải
                     </span>
-                    <span className="font-display tabular-nums text-base font-bold text-emerald-400 block whitespace-nowrap truncate">
+                    <span className="font-display tabular-nums text-sm sm:text-base font-bold text-emerald-400 block whitespace-nowrap truncate">
                       {post.totalTonnageKg.toLocaleString()} kg
                     </span>
                   </div>
-                  <div className="min-w-0 flex flex-col gap-1 border-l border-white/[0.08] pl-4">
-                    <span className="text-xs text-zinc-400 block truncate">
+                  <div className="min-w-0 flex flex-col gap-0.5 sm:gap-1 border-l border-white/[0.08] pl-2.5 sm:pl-4">
+                    <span className="text-[11px] sm:text-xs text-zinc-400 block truncate">
                       Hiệp tập
                     </span>
-                    <span className="font-display tabular-nums text-base font-bold text-zinc-100 block whitespace-nowrap truncate">
+                    <span className="font-display tabular-nums text-sm sm:text-base font-bold text-zinc-100 block whitespace-nowrap truncate">
                       {post.totalSets} hiệp
                     </span>
                   </div>
-                  <div className="min-w-0 flex flex-col gap-1 border-l border-white/[0.08] pl-4">
-                    <span className="text-xs text-zinc-400 block truncate">
+                  <div className="min-w-0 flex flex-col gap-0.5 sm:gap-1 border-l border-white/[0.08] pl-2.5 sm:pl-4">
+                    <span className="text-[11px] sm:text-xs text-zinc-400 block truncate">
                       Thời lượng
                     </span>
-                    <span className="font-display tabular-nums text-base font-bold text-zinc-100 block whitespace-nowrap truncate">
+                    <span className="font-display tabular-nums text-sm sm:text-base font-bold text-zinc-100 block whitespace-nowrap truncate">
                       {post.durationMinutes} phút
                     </span>
                   </div>
@@ -852,13 +852,13 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                 )}
 
                 {/* Card Footer Actions */}
-                <div className="pt-4 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-2 sm:gap-3 w-full">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="pt-3.5 border-t border-white/[0.08] flex items-center justify-between gap-2 w-full">
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                     {/* Daps Button (Apple HIG pill with subtle glow & active state) */}
                     <button
                       type="button"
                       onClick={() => handleDapClick(post.id)}
-                      className={`relative h-10 px-3.5 py-1.5 rounded-2xl border transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap select-none shadow-xs ${
+                      className={`relative min-h-[40px] px-3 sm:px-3.5 py-1.5 rounded-2xl border transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap select-none shadow-xs ${
                         post.isDapped
                           ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 shadow-sm shadow-emerald-500/10'
                           : 'backdrop-blur-md bg-white/[0.06] hover:bg-white/[0.12] border-white/10 text-zinc-100'
@@ -882,7 +882,7 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => setCommentModalPost(post)}
-                      className="apple-btn-secondary h-10 px-3.5 py-1.5 rounded-2xl text-xs font-medium inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap active:scale-[0.96]"
+                      className="apple-btn-secondary min-h-[40px] px-3 sm:px-3.5 py-1.5 rounded-2xl text-xs font-medium inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap active:scale-[0.96]"
                       title="Mở bình luận"
                     >
                       <MessageSquare className="w-4 h-4 text-zinc-400 stroke-[1.75] shrink-0" />
@@ -890,11 +890,11 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                     </button>
                   </div>
 
-                  {/* Routine Fork Button ("Xin lịch") */}
+                  {/* Routine Fork Button ("Xin lịch") - Locked inline on the right of the row */}
                   <button
                     type="button"
                     onClick={() => handleFork(post)}
-                    className={`h-10 px-4 py-1.5 rounded-2xl text-xs font-semibold border transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 inline-flex items-center justify-center gap-1.5 w-auto max-w-fit shrink-0 whitespace-nowrap ml-auto shadow-xs ${
+                    className={`min-h-[40px] px-3 sm:px-4 py-1.5 rounded-2xl text-xs font-semibold border transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap shadow-xs ${
                       isForked
                         ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
                         : 'backdrop-blur-md bg-white/[0.06] text-zinc-100 hover:bg-white/[0.12] border-white/10'

@@ -10,10 +10,22 @@ const ISAR_EXERCISE_HISTORY_KEY = 'ditapde_isar_exercise_history_v1';
 const ISAR_USER_LOGGED_HISTORY_KEY = 'ditapde_isar_user_logged_history_v1';
 const ISAR_MANUAL_1RM_KEY = 'ditapde_isar_manual_1rm_v1';
 const ISAR_SYNCED_COMPOUND_PRS_KEY = 'ditapde_isar_synced_compound_prs_v1';
+const ISAR_AI_VERIFIED_PRS_KEY = 'ditapde_isar_ai_verified_prs_v1';
 const ISAR_INITIAL_CRASH_DEMO_SEEDED_KEY = 'ditapde_isar_crash_demo_seeded_v1';
 
 export interface Manual1RMRecord {
   weightKg: number;
+  updatedAt: string;
+}
+
+export interface AIVerifiedPRRecord {
+  weightKg: number;
+  reps: number;
+  e1rmKg: number;
+  bestRep: number;
+  peakVelocityMps: number;
+  volumeKg: number;
+  verifiedAt: string;
   updatedAt: string;
 }
 
@@ -287,6 +299,43 @@ export class WorkoutDraftCacheService {
       localStorage.setItem(ISAR_MANUAL_1RM_KEY, JSON.stringify(next));
     } catch (e) {
       console.warn('Error saving manual 1RM:', e);
+    }
+    return next;
+  }
+
+  /**
+   * Read camera-verified (MediaPipe Pose) PR test results for core lifts
+   */
+  static getAIVerifiedPRMap(): Record<string, AIVerifiedPRRecord> {
+    try {
+      const raw = localStorage.getItem(ISAR_AI_VERIFIED_PRS_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) as Record<string, AIVerifiedPRRecord>;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Persist a camera-verified PR test result confirmed by the user
+   */
+  static saveAIVerifiedPR(
+    liftKey: string,
+    record: Omit<AIVerifiedPRRecord, 'verifiedAt' | 'updatedAt'>
+  ): Record<string, AIVerifiedPRRecord> {
+    const now = new Date();
+    const next: Record<string, AIVerifiedPRRecord> = {
+      ...WorkoutDraftCacheService.getAIVerifiedPRMap(),
+      [liftKey]: {
+        ...record,
+        verifiedAt: now.toISOString(),
+        updatedAt: now.toLocaleDateString('vi-VN'),
+      },
+    };
+    try {
+      localStorage.setItem(ISAR_AI_VERIFIED_PRS_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('Error saving AI verified PR:', e);
     }
     return next;
   }

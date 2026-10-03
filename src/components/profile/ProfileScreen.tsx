@@ -47,7 +47,12 @@ import {
 import {
   WorkoutDraftCacheService,
   Manual1RMRecord,
+  AIVerifiedPRRecord,
 } from '../../services/workoutDraftCacheService';
+import {
+  KineticPRTrackerModal,
+  KineticPRTestResult,
+} from './KineticPRTrackerModal';
 import { calculateE1RM } from '../../utils/fitnessCalculations';
 import {
   ResponsiveContainer,
@@ -284,9 +289,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [manual1RMMap, setManual1RMMap] = useState<Record<string, Manual1RMRecord>>(() =>
     WorkoutDraftCacheService.getManual1RMMap()
   );
+  const [aiVerifiedPRMap, setAiVerifiedPRMap] = useState<Record<string, AIVerifiedPRRecord>>(() =>
+    WorkoutDraftCacheService.getAIVerifiedPRMap()
+  );
+  const [activeKineticLiftKey, setActiveKineticLiftKey] = useState<string | null>(null);
   const [selectedLiftKey, setSelectedLiftKey] = useState<string | null>(null);
   const [isEntering1RM, setIsEntering1RM] = useState<boolean>(false);
   const [manualWeightInput, setManualWeightInput] = useState<string>('');
+
+  const handleOpenKineticTracker = (liftKey: string) => {
+    setActiveKineticLiftKey(liftKey);
+  };
+
+  const handleSaveAIVerifiedPR = (result: KineticPRTestResult) => {
+    if (!activeKineticLiftKey) return;
+    const updated = WorkoutDraftCacheService.saveAIVerifiedPR(activeKineticLiftKey, result);
+    setAiVerifiedPRMap(updated);
+    setActiveKineticLiftKey(null);
+  };
 
   const prTrophies = useMemo(() => {
     const syncedCompoundPRs = WorkoutDraftCacheService.getSyncedCompoundPRs();
@@ -338,22 +358,41 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         });
       }
 
+      const aiVerifiedEntry = aiVerifiedPRMap[lift.key];
+      const hasAiVerified = Boolean(
+        aiVerifiedEntry && (aiVerifiedEntry.e1rmKg > 0 || aiVerifiedEntry.weightKg > 0)
+      );
+      const aiWeightKg = hasAiVerified
+        ? aiVerifiedEntry.e1rmKg > 0
+          ? aiVerifiedEntry.e1rmKg
+          : aiVerifiedEntry.weightKg
+        : 0;
+
       const manualEntry = manual1RMMap[lift.key];
       const hasLoggerData = bestLoggerE1rmKg > 0;
       const hasManualData = Boolean(manualEntry && manualEntry.weightKg > 0);
+      const manualWeightKg = hasManualData ? manualEntry.weightKg : 0;
 
       let activeWeightKg = 0;
       let typeLabel = 'Chưa có dữ liệu Logger';
-      let source: 'logger' | 'manual' | 'none' = 'none';
+      let source: 'ai_verified' | 'logger' | 'manual' | 'none' = 'none';
 
-      if (hasLoggerData && (!hasManualData || bestLoggerE1rmKg >= manualEntry.weightKg)) {
+      if (hasAiVerified && aiWeightKg >= bestLoggerE1rmKg && aiWeightKg >= manualWeightKg) {
+        activeWeightKg = aiWeightKg;
+        typeLabel = `Đã xác thực AI · ${aiVerifiedEntry.weightKg}kg × ${aiVerifiedEntry.reps}`;
+        source = 'ai_verified';
+      } else if (hasLoggerData && (!hasManualData || bestLoggerE1rmKg >= manualWeightKg)) {
         activeWeightKg = bestLoggerE1rmKg;
         typeLabel = `1RM ước tính · ${bestSetSummary.split(' @')[0]}`;
         source = 'logger';
       } else if (hasManualData) {
-        activeWeightKg = manualEntry.weightKg;
+        activeWeightKg = manualWeightKg;
         typeLabel = '1RM tối đa · Đã nhập';
         source = 'manual';
+      } else if (hasAiVerified) {
+        activeWeightKg = aiWeightKg;
+        typeLabel = `Đã xác thực AI · ${aiVerifiedEntry.weightKg}kg × ${aiVerifiedEntry.reps}`;
+        source = 'ai_verified';
       }
 
       const displayWeightValue =
@@ -363,7 +402,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             : `${Math.round(activeWeightKg * 10) / 10} kg`
           : '-- kg';
 
+      let aiVerifiedTimestamp = '';
+      if (hasAiVerified && aiVerifiedEntry) {
+        if (aiVerifiedEntry.verifiedAt) {
+          try {
+            const d = new Date(aiVerifiedEntry.verifiedAt);
+            if (!isNaN(d.getTime())) {
+              const timeStr = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              const dateStr = d.toLocaleDateString('vi-VN');
+              aiVerifiedTimestamp = `${timeStr} · ${dateStr}`;
+            }
+          } catch {
+            aiVerifiedTimestamp = aiVerifiedEntry.updatedAt || '';
+          }
+        }
+        if (!aiVerifiedTimestamp) {
+          aiVerifiedTimestamp = aiVerifiedEntry.updatedAt || '';
+        }
+      }
+
       const prDate =
+        (hasAiVerified && (aiVerifiedEntry.updatedAt || aiVerifiedTimestamp)) ||
         syncedRecord?.updatedAt ||
         manualEntry?.updatedAt ||
         lift.baselinePrDate;
@@ -386,9 +445,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         weight: displayWeightValue,
         type: typeLabel,
         source,
+        isAiVerified: hasAiVerified,
+        aiVerifiedTimestamp,
+        aiVerifiedRecord: aiVerifiedEntry,
         bestSetSummary,
         matchedExerciseName,
-        updatedAt: syncedRecord?.updatedAt || manualEntry?.updatedAt,
+        updatedAt:
+          (hasAiVerified && aiVerifiedEntry.updatedAt) ||
+          syncedRecord?.updatedAt ||
+          manualEntry?.updatedAt,
         prDate,
         previousDate: lift.baselinePrevDate,
         previousWeightDisplay: convertUnit(previousKgForChart),
@@ -396,7 +461,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         gainDisplay: Math.round((convertUnit(currentKgForChart) - convertUnit(previousKgForChart)) * 10) / 10,
       };
     });
-  }, [manual1RMMap, unit]);
+  }, [manual1RMMap, aiVerifiedPRMap, unit]);
 
   const handleOpen1RMInput = (liftKey: string, currentWeightKg: number) => {
     setSelectedLiftKey(liftKey);
@@ -560,7 +625,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
+                className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-base text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -571,7 +636,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 type="text"
                 value={editGym}
                 onChange={(e) => setEditGym(e.target.value)}
-                className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
+                className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-base text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -582,7 +647,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
                 rows={2}
-                className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-base text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
               />
             </div>
             <div className="flex justify-end gap-2.5 pt-2">
@@ -853,7 +918,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   ? 'Nhập tên người dùng (vd: @duc_power)...'
                   : 'Nhập Gmail (vd: duc.power@gmail.com)...'
               }
-              className="w-full min-w-0 min-h-[44px] bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#E4483C] transition-colors"
+              className="w-full min-w-0 min-h-[44px] bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2 text-base text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#E4483C] transition-colors"
             />
           </div>
           <button
@@ -1188,7 +1253,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 sm:gap-4">
           {prTrophies.map((pr) => {
             const isSelected = selectedLiftKey === pr.key;
             return (
@@ -1209,46 +1274,84 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     setIsEntering1RM(false);
                   }
                 }}
-                className={`p-4 sm:p-5 rounded-2xl bg-white/[0.03] border transition-all duration-200 ease-out flex items-center justify-between gap-3 active:scale-[0.98] ${
+                className={`p-4 sm:p-5 rounded-2xl bg-white/[0.03] border transition-all duration-200 ease-out flex flex-col justify-between gap-3 active:scale-[0.98] ${
                   isSelected
                     ? 'border-[#E4483C] bg-white/[0.06] shadow-sm'
+                    : pr.isAiVerified
+                    ? 'border-[#00FF88]/40 bg-[#00FF88]/[0.03] hover:border-[#00FF88]/60 hover:bg-[#00FF88]/[0.06] cursor-pointer'
                     : pr.hasData
                     ? 'border-white/[0.08] hover:border-white/20 hover:bg-white/[0.05] cursor-pointer'
                     : 'border-white/[0.06]'
                 }`}
               >
-                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                  <span className="text-xs text-zinc-400 block truncate font-medium">
-                    {pr.name}
-                  </span>
-                  <span
-                    className={`font-display tabular-nums text-lg font-bold block tracking-tight ${
-                      pr.hasData ? 'text-zinc-100' : 'text-zinc-500'
-                    }`}
-                  >
-                    {pr.weight}
-                  </span>
-                  {pr.hasData ? (
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs text-zinc-400 block truncate font-medium">
+                        {pr.name}
+                      </span>
+                      {pr.isAiVerified && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#00FF88]/15 text-[#00FF88] border border-[#00FF88]/40 text-[10px] font-bold tracking-tight">
+                          <CheckCircle2 className="w-2.5 h-2.5 stroke-[2.5]" />
+                          <span>Đã xác thực AI</span>
+                        </span>
+                      )}
+                    </div>
                     <span
-                      className="text-xs font-semibold block truncate"
-                      style={{ color: pr.color }}
+                      className={`font-display tabular-nums text-xl sm:text-2xl font-bold block tracking-tight ${
+                        pr.hasData
+                          ? pr.isAiVerified
+                            ? 'text-[#00FF88]'
+                            : 'text-zinc-100'
+                          : 'text-zinc-500'
+                      }`}
                     >
-                      {pr.type}
+                      {pr.weight}
                     </span>
-                  ) : (
+                    {pr.isAiVerified && pr.aiVerifiedTimestamp ? (
+                      <span className="text-[11px] text-zinc-400 font-normal">
+                        Cập nhật: {pr.aiVerifiedTimestamp}
+                      </span>
+                    ) : pr.hasData ? (
+                      <span
+                        className="text-xs font-semibold block truncate"
+                        style={{ color: pr.color }}
+                      >
+                        {pr.type}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-zinc-500">Chưa có kỷ lục</span>
+                    )}
+                  </div>
+                  <span className="text-2xl shrink-0">{pr.icon}</span>
+                </div>
+
+                <div className="flex flex-col gap-2 w-full pt-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenKineticTracker(pr.key);
+                    }}
+                    className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-[#00FF88]/15 hover:bg-[#00FF88]/25 text-[#00FF88] border border-[#00FF88]/30 hover:border-[#00FF88]/50 text-xs sm:text-sm font-bold tracking-wide flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.96] shadow-sm shadow-[#00FF88]/10"
+                    title={`Test luôn ${pr.name} bằng camera AI`}
+                  >
+                    <Zap className="w-4 h-4 fill-[#00FF88]" />
+                    <span>Test luôn 🏋️</span>
+                  </button>
+                  {!pr.hasData && (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpen1RMInput(pr.key, 0);
                       }}
-                      className="mt-0.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-200 border border-white/10 hover:border-white/20 text-xs font-semibold transition-all duration-200 inline-flex items-center gap-1.5 w-fit active:scale-[0.96]"
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-300 border border-white/10 text-xs font-semibold transition-all duration-200 inline-flex items-center justify-center gap-1 active:scale-[0.96]"
                     >
                       <span>Nhập 1RM tối đa</span>
                     </button>
                   )}
                 </div>
-                <span className="text-2xl shrink-0">{pr.icon}</span>
               </div>
             );
           })}
@@ -1262,16 +1365,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           return (
             <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
                   <span className="text-lg shrink-0">{activeLift.icon}</span>
                   <span className="font-display font-semibold text-sm text-zinc-100 truncate tracking-tight">
                     {activeLift.name}
                   </span>
-                  {activeLift.source === 'logger' && (
+                  {activeLift.isAiVerified ? (
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#00FF88]/15 text-[#00FF88] border border-[#00FF88]/30 font-bold inline-flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
+                      <span>Đã xác thực AI</span>
+                    </span>
+                  ) : activeLift.source === 'logger' ? (
                     <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium">
                       Logger PR
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -1279,7 +1387,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     setSelectedLiftKey(null);
                     setIsEntering1RM(false);
                   }}
-                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 active:scale-[0.96]"
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 active:scale-[0.96]"
                   title="Đóng chi tiết PR"
                   aria-label="Đóng chi tiết PR"
                 >
@@ -1299,7 +1407,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       value={manualWeightInput}
                       onChange={(e) => setManualWeightInput(e.target.value)}
                       placeholder={`Nhập mức tạ 1RM tối đa (${unit})...`}
-                      className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-sm font-display tabular-nums text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#E4483C] transition-colors"
+                      className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-base font-display tabular-nums text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#E4483C] transition-colors"
                     />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1324,7 +1432,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                   <div className="text-xs text-zinc-400">
-                    {activeLift.source === 'logger' ? (
+                    {activeLift.isAiVerified && activeLift.aiVerifiedRecord ? (
+                      <span>
+                        Kỷ lục xác thực qua camera AI: <strong className="text-[#00FF88] font-semibold">{activeLift.aiVerifiedRecord.weightKg}kg × {activeLift.aiVerifiedRecord.reps} reps</strong> (Vận tốc đỉnh: {activeLift.aiVerifiedRecord.peakVelocityMps} m/s · 1RM: {activeLift.weight}{activeLift.aiVerifiedTimestamp ? ` · ${activeLift.aiVerifiedTimestamp}` : ''})
+                      </span>
+                    ) : activeLift.source === 'logger' ? (
                       <span>
                         Kỷ lục gần nhất từ bài <strong className="text-zinc-100 font-semibold">{activeLift.matchedExerciseName}</strong> ({activeLift.bestSetSummary})
                       </span>
@@ -1334,11 +1446,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenKineticTracker(activeLift.key)}
+                      className="min-h-[44px] px-4 py-2 rounded-xl bg-[#00FF88]/15 hover:bg-[#00FF88]/25 text-[#00FF88] border border-[#00FF88]/30 hover:border-[#00FF88]/50 text-xs font-bold inline-flex items-center gap-1.5 transition-all duration-200 active:scale-[0.96]"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-[#00FF88]" />
+                      <span>Test lại bằng AI</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleOpen1RMInput(activeLift.key, activeLift.activeWeightKg)}
-                      className="apple-btn-secondary min-h-[38px] px-3.5 py-1.5 text-xs font-semibold"
+                      className="apple-btn-secondary min-h-[44px] px-4 py-2 text-xs font-semibold"
                     >
                       Nhập 1RM tối đa
                     </button>
@@ -1346,7 +1466,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       <button
                         type="button"
                         onClick={onOpenLogger}
-                        className="apple-btn-accent min-h-[38px] px-3.5 py-1.5 text-xs font-semibold"
+                        className="apple-btn-accent min-h-[44px] px-4 py-2 text-xs font-semibold"
                       >
                         Tập bài này
                       </button>
@@ -1355,6 +1475,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </div>
               )}
             </div>
+          );
+        })()}
+
+        {/* Kinetic Pose Tracker Modal */}
+        {activeKineticLiftKey && (() => {
+          const activeLift =
+            prTrophies.find((item) => item.key === activeKineticLiftKey) ||
+            CORE_PR_LIFTS.find((item) => item.key === activeKineticLiftKey);
+          if (!activeLift) return null;
+          const currentPr =
+            prTrophies.find((item) => item.key === activeKineticLiftKey)?.activeWeightKg ?? 0;
+          return (
+            <KineticPRTrackerModal
+              liftKey={activeKineticLiftKey}
+              liftName={activeLift.name}
+              unit={unit}
+              currentPrKg={currentPr}
+              onClose={() => setActiveKineticLiftKey(null)}
+              onSave={handleSaveAIVerifiedPR}
+            />
           );
         })()}
       </section>
