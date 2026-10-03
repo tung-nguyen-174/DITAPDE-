@@ -556,7 +556,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between gap-4 pt-1">
-                    <span className="text-xs text-zinc-400 font-display tabular-nums font-medium">
+                    <span className="min-w-0 text-xs text-zinc-400 font-display tabular-nums font-medium">
                       <strong className="text-zinc-100">
                         {routine.forksCount}
                       </strong>{' '}
@@ -565,16 +565,16 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
                     <button
                       onClick={() => handleFork(routine)}
-                      className={`min-h-[42px] px-5 py-2 rounded-2xl text-xs sm:text-sm font-semibold border transition-all duration-200 ease-out active:scale-[0.98] flex items-center gap-2 ${
+                      className={`h-11 px-5 rounded-2xl text-xs sm:text-sm font-semibold border transition-all duration-200 ease-out active:scale-[0.98] inline-flex items-center justify-center gap-2 shrink-0 whitespace-nowrap ${
                         isForked
                           ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                           : 'apple-btn-accent'
                       }`}
                     >
                       {isForked ? (
-                        <Check className="w-4 h-4 stroke-[1.75]" />
+                        <Check className="w-4 h-4 stroke-[1.75] shrink-0" />
                       ) : (
-                        <GitFork className="w-4 h-4 stroke-[1.75]" />
+                        <GitFork className="w-4 h-4 stroke-[1.75] shrink-0" />
                       )}
                       <span>{isForked ? 'Đã lưu lịch' : 'Xin lịch tập'}</span>
                     </button>
