@@ -1,705 +1,673 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  MapPin,
-  Sparkles,
-  Check,
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  Share2, 
+  MapPin, 
+  Flame, 
+  Camera, 
+  Sparkles, 
+  CheckCircle2, 
   TrendingUp,
-  RotateCcw,
-  Camera,
-  Image as ImageIcon,
+  Dumbbell,
+  Layers,
+  Clock,
   Video,
-  X,
-  Search,
-  ChevronDown,
-  AlertCircle,
+  Image as ImageIcon,
+  Trophy
 } from 'lucide-react';
+import { WorkoutSession, FeedPost, MuscleGroup } from '../../types/gym';
 import {
-  WorkoutSession,
-  FeedPost,
-  MuscleGroup,
-} from '../../types/gym';
-import {
-  getSetsBestE1RM,
+  calculateE1RM,
+  getSessionExerciseProgressions,
+  getRpePlateColor,
+  PLATE_CODE_COLORS,
+  SetCalculator,
+  calculateCompoundLiftsE1RM,
 } from '../../utils/fitnessCalculations';
-import { MuscleHeatmap } from '../common/MuscleHeatmap';
-import { GYM_VENUES } from '../../data/mockData';
-import { FlexStoryModal, AttachedStoryMedia } from './FlexStoryModal';
+import { WorkoutDraftCacheService } from '../../services/workoutDraftCacheService';
 import { processUploadedMediaFile } from '../../utils/mediaUpload';
-import { GymLocationModel } from '../../services/googlePlacesService';
-import { getMuscleVietnameseLabel } from '../logger/ActiveLoggerScreen';
+import { MuscleHeatmapWidget } from '../common/MuscleHeatmapWidget';
+import { buildSetVolumeMapFromExercisesJson } from '../../services/exerciseImporter';
+import { GooglePlacesService } from '../../services/googlePlacesService';
+import { FlexStoryModal } from './FlexStoryModal';
+import { formatRealTimeDisplay } from '../../utils/postTimestamp';
+import bannerLogoImg from '../../assets/images/regenerated_image_1790319031345.png';
+import profileAvatarImg from '../../assets/images/regenerated_image_1790319027239.png';
 
 interface SummaryScreenProps {
   session: WorkoutSession;
-  activeCheckInGym?: GymLocationModel | null;
-  userName?: string;
-  userHandle?: string;
-  userAvatar?: string;
   onPublishToFeed: (post: FeedPost) => void;
-  onDiscard: () => void;
+  onBackToLogger: () => void;
+  isLandscape?: boolean;
+  isTablet?: boolean;
 }
 
 export const SummaryScreen: React.FC<SummaryScreenProps> = ({
   session,
-  activeCheckInGym,
-  userName = 'Tùng Nguyễn',
-  userHandle = 'tung_powerbuilder',
-  userAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80',
   onPublishToFeed,
-  onDiscard,
+  onBackToLogger,
 }) => {
-  const [caption, setCaption] = useState(
-    'Buổi tập cực cháy hôm nay! Ai đang ở phòng tập vào điểm danh đê 🔥💪'
+  const [caption, setCaption] = useState<string>(
+    'Buổi tập hôm nay quá đã! Tạ lên đều và kỹ thuật cực kỳ mượt mà. Anh em cùng phòng tập điểm danh đê!'
   );
-  const [selectedGymName, setSelectedGymName] = useState(
-    activeCheckInGym?.name || session.gymVenue || GYM_VENUES[0].name
+  const [visibility, setVisibility] = useState<'public' | 'friends' | 'private'>('public');
+  const activeCheckedInGym = GooglePlacesService.loadSavedCheckIn();
+  const [selectedGym, setSelectedGym] = useState<string>(
+    activeCheckedInGym?.name || session.gymVenue || 'California Fitness & Yoga Thanh Hóa'
   );
-  const [gymSearchQuery, setGymSearchQuery] = useState('');
-  const [isGymDropdownOpen, setIsGymDropdownOpen] = useState(false);
+  const [isPublishing, setIsPublishing] = useState<boolean>(false);
+  const [isFlexStoryModalOpen, setIsFlexStoryModalOpen] = useState<boolean>(false);
+  const [uploadedMedia, setUploadedMedia] = useState<{
+    type: 'image' | 'video';
+    url: string;
+    fileName: string;
+    fileSizeLabel: string;
+  } | null>(null);
 
-  const [shareToFeed, setShareToFeed] = useState(true);
-  const [showStoryModal, setShowStoryModal] = useState(false);
-  const [attachedMedia, setAttachedMedia] = useState<AttachedStoryMedia[]>([]);
-  const [mediaUploading, setMediaUploading] = useState(false);
-  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (activeCheckInGym) {
-      setSelectedGymName(activeCheckInGym.name);
-    }
-  }, [activeCheckInGym]);
-
-  const filteredGyms = useMemo(() => {
-    const q = gymSearchQuery.trim().toLowerCase();
-    if (!q) return GYM_VENUES;
-    return GYM_VENUES.filter(
-      (g) =>
-        g.name.toLowerCase().includes(q) ||
-        g.address.toLowerCase().includes(q) ||
-        g.city.toLowerCase().includes(q)
-    );
-  }, [gymSearchQuery]);
-
-  const totalVolume = useMemo(() => {
-    const computed = session.exercises.reduce((acc, ex) => {
-      return (
-        acc +
-        ex.sets.reduce((sAcc, s) => {
-          return sAcc + (s.completed ? s.weight * s.reps : s.weight * s.reps);
-        }, 0)
-      );
-    }, 0);
-    return computed > 0 ? computed : session.totalTonnageKg || 8450;
-  }, [session]);
-
-  const completedSets = useMemo(() => {
-    const done = session.exercises.reduce(
-      (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
-      0
-    );
-    const total = session.exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
-    return done > 0 ? done : total || 14;
-  }, [session.exercises]);
-
-  const muscleVolumes = useMemo(() => {
-    const map: Partial<Record<MuscleGroup, number>> = {};
-    session.exercises.forEach((ex) => {
-      const doneCount = ex.sets.filter((s) => s.completed).length;
-      const count = doneCount > 0 ? doneCount : ex.sets.length;
-      map[ex.primaryMuscle] = (map[ex.primaryMuscle] || 0) + count;
+  const handleSummaryMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const processed = await processUploadedMediaFile(file);
+    setUploadedMedia({
+      type: processed.type,
+      url: processed.url,
+      fileName: processed.fileName,
+      fileSizeLabel: processed.fileSizeLabel,
     });
-    return map;
-  }, [session.exercises]);
-
-  const muscleSetCounts: Record<string, number> = {};
-  session.exercises.forEach((ex) => {
-    const completed = ex.sets.filter((s) => s.completed).length;
-    const countToUse = completed > 0 ? completed : ex.sets.length;
-    const label = getMuscleVietnameseLabel(ex.primaryMuscle);
-    if (countToUse > 0) {
-      muscleSetCounts[label] = (muscleSetCounts[label] || 0) + countToUse;
-    }
-  });
-  if (Object.keys(muscleSetCounts).length === 0) {
-    muscleSetCounts['Ngực'] = 4;
-    muscleSetCounts['Tay Sau'] = 3;
-  }
+    e.target.value = '';
+  };
 
   const durationMinutes = Math.max(1, Math.round(session.durationSeconds / 60));
+  const hasAnyCompleted = useMemo(
+    () => SetCalculator.hasAnyCompletedSet(session.exercises),
+    [session.exercises]
+  );
 
-  const formatDurationReadout = (sec: number) => {
-    const mins = Math.floor(sec / 60);
-    const hrs = Math.floor(mins / 60);
-    const remMins = mins % 60;
-    if (hrs > 0) return `${hrs}g ${remMins}p`;
-    return `${mins} phút`;
-  };
+  const computedTonnage = useMemo(
+    () =>
+      SetCalculator.calculateSessionTonnage(
+        session.exercises,
+        {
+          bodyweightKg: session.userBodyweightKg,
+          preferredUnit: session.preferredUnit,
+        },
+        { includeUncompletedIfNoneDone: true }
+      ),
+    [session.exercises, session.userBodyweightKg, session.preferredUnit]
+  );
 
-  let topExerciseName = session.exercises[0]?.name || 'Barbell Bench Press';
-  let topE1RM = 0;
-  let topWeightReps = '100 kg × 5 lần';
-  let topRpe = 8.5;
-  session.exercises.forEach((ex) => {
-    const bestInfo = getSetsBestE1RM(ex.sets);
-    if (bestInfo && bestInfo.e1rm > topE1RM) {
-      topE1RM = bestInfo.e1rm;
-      topExerciseName = ex.name;
-      topWeightReps = `${bestInfo.weight} kg × ${bestInfo.reps} lần`;
-      topRpe = bestInfo.set.rpe;
-    }
-  });
+  const computedSetsCount = useMemo(
+    () =>
+      SetCalculator.calculateCompletedSetsCount(session.exercises, {
+        includeUncompletedIfNoneDone: true,
+      }),
+    [session.exercises]
+  );
 
-  const handleMediaFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setMediaUploading(true);
-    setMediaUploadError(null);
-    try {
-      const processedList: AttachedStoryMedia[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const item = await processUploadedMediaFile(files[i]);
-        processedList.push({
-          type: item.type,
-          url: item.url,
-          fileName: item.fileName,
-          fileSizeLabel: item.fileSizeLabel,
-        });
-      }
-      setAttachedMedia((prev) => [...prev, ...processedList]);
-    } catch (err) {
-      console.error('Error uploading workout media:', err);
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Không thể xử lý tệp hình ảnh/video. Vui lòng thử lại.';
-      setMediaUploadError(message);
-    } finally {
-      setMediaUploading(false);
-      e.target.value = '';
-    }
-  };
+  const totalVolume = computedTonnage > 0 ? computedTonnage : session.totalTonnageKg || 6850;
+  const totalSets = computedSetsCount > 0 ? computedSetsCount : session.totalSets || 14;
 
-  const handleRemoveMedia = (index: number) => {
-    setAttachedMedia((prev) => prev.filter((_, idx) => idx !== index));
-  };
+  const muscleVolumeMap = useMemo<Partial<Record<MuscleGroup, number>>>(
+    () =>
+      buildSetVolumeMapFromExercisesJson(session.exercises, {
+        includeUncompletedIfNoneDone: true,
+      }),
+    [session.exercises]
+  );
 
-  const handleStoryBackgroundUpdate = (storyMedia: AttachedStoryMedia | null) => {
-    if (!storyMedia) {
-      setAttachedMedia([]);
-    } else {
-      setAttachedMedia([storyMedia]);
-    }
-  };
+  const heatmapDisplayVolumes = useMemo(
+    () =>
+      SetCalculator.buildMacroMuscleVolumes(session.exercises, {
+        includeUncompletedIfNoneDone: true,
+      }),
+    [session.exercises]
+  );
+
+  const exerciseProgressions = useMemo(
+    () => getSessionExerciseProgressions(session),
+    [session]
+  );
+
+  const topPR = useMemo(
+    () =>
+      SetCalculator.findSessionTopPR(session, {
+        includeUncompletedIfNoneDone: true,
+      }),
+    [session]
+  );
+
+  const compoundLiftsSummary = useMemo(
+    () =>
+      calculateCompoundLiftsE1RM(session.exercises, {
+        bodyweightKg: session.userBodyweightKg,
+        preferredUnit: session.preferredUnit,
+      }).filter((l) => l.isTopThreeSBD),
+    [session.exercises, session.userBodyweightKg, session.preferredUnit]
+  );
+
+  useEffect(() => {
+    WorkoutDraftCacheService.syncCompoundPRsFromSession(session);
+  }, [session]);
 
   const handlePublish = () => {
-    const primaryMedia = attachedMedia[0];
+    setIsPublishing(true);
+
+    const summaryExercises = session.exercises
+      .map((ex) => {
+        const activeSets = hasAnyCompleted ? ex.sets.filter((s) => s.completed) : ex.sets;
+        if (activeSets.length === 0) return null;
+        const bestExSet = activeSets.reduce((prev, curr) => {
+          const prevScore = calculateE1RM(prev.weight, prev.reps, prev.rpe) || prev.weight * prev.reps;
+          const currScore = calculateE1RM(curr.weight, curr.reps, curr.rpe) || curr.weight * curr.reps;
+          return currScore >= prevScore ? curr : prev;
+        }, activeSets[0]);
+        const exVolume = activeSets.reduce((acc, s) => acc + s.weight * s.reps, 0);
+        return {
+          name: ex.name,
+          topSet: bestExSet
+            ? `${bestExSet.weight}kg × ${bestExSet.reps}${bestExSet.rpe ? ` (RPE ${bestExSet.rpe})` : ''}`
+            : 'Hoàn thành',
+          primaryMuscle: ex.primaryMuscle,
+          volumeKg: exVolume,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    const nowMs = Date.now();
+    const nowIso = new Date(nowMs).toISOString();
+
     const newPost: FeedPost = {
-      id: `post-${Date.now()}`,
-      userId: 'current-user',
-      userName,
-      userAvatar,
-      userBadge: 'Chuột Chiến',
-      userGym: selectedGymName,
-      timestamp: 'Vừa xong',
+      id: `post-${nowMs}`,
+      userId: 'user-current',
+      userName: 'Long Aura (Bạn)',
+      userAvatar: profileAvatarImg,
+      userBadge: 'Aura Master',
+      userGym: selectedGym,
+      timestamp: formatRealTimeDisplay(nowMs, nowMs),
+      createdAt: nowIso,
       title: session.title,
       durationMinutes,
       totalTonnageKg: totalVolume,
-      totalSets: completedSets,
-      prHighlight:
-        topE1RM > 0
-          ? `🏆 PR: ${topExerciseName} • E1RM ${topE1RM} kg`
-          : undefined,
+      totalSets,
+      prHighlight: `🏆 PR: ${topPR.exerciseName} ${topPR.weight}kg × ${topPR.reps} (1RM ${topPR.e1rm}kg)`,
       caption,
       dapsCount: 1,
       isDapped: true,
       commentsCount: 0,
-      comments: [],
       forkCount: 0,
       workoutSummary: {
-        exercises: session.exercises.map((ex) => {
-          const bestSet = ex.sets.reduce(
-            (acc, s) => (s.weight > acc.weight ? s : acc),
-            ex.sets[0] || { weight: 60, reps: 10, rpe: 8 }
-          );
-          const vol = ex.sets.reduce((sum, s) => sum + s.weight * s.reps, 0);
-          return {
-            name: ex.name,
-            topSet: `${bestSet.weight}kg x ${bestSet.reps} (RPE ${bestSet.rpe})`,
-            primaryMuscle: ex.primaryMuscle,
-            volumeKg: vol || 1200,
-          };
-        }),
-        muscleVolumeMap:
-          Object.keys(muscleVolumes).length > 0
-            ? muscleVolumes
-            : { chest: 8, triceps: 6, front_delts: 5 },
+        exercises: summaryExercises,
+        muscleVolumeMap,
       },
-      media: primaryMedia
-        ? {
-            type: primaryMedia.type,
-            url: primaryMedia.url,
-            telemetryData: {
-              exercise: topExerciseName,
-              weightReps: topWeightReps,
-              rpe: topRpe,
-              volume: `${totalVolume.toLocaleString('vi-VN')} kg`,
-            },
-          }
-        : undefined,
+      media: {
+        type: uploadedMedia?.type || 'image',
+        url: uploadedMedia?.url || bannerLogoImg,
+        telemetryData: {
+          exercise: topPR.exerciseName,
+          weightReps: `${topPR.weight} kg × ${topPR.reps} lần`,
+          rpe: topPR.rpe,
+          volume: `${totalVolume.toLocaleString()} kg`,
+        },
+      },
     };
 
-    onPublishToFeed(newPost);
+    setTimeout(() => {
+      onPublishToFeed(newPost);
+    }, 600);
   };
 
-  const primaryStoryMedia: AttachedStoryMedia | null =
-    attachedMedia.length > 0 ? attachedMedia[0] : null;
-
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950 text-zinc-100 flex flex-col overflow-y-auto">
-      <div className="max-w-lg mx-auto w-full px-6 py-8 flex flex-col gap-6 pb-28">
-        {/* Top Celebration Header */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-[12px] font-medium text-emerald-400">
-              Hoàn thành giáo án hôm nay
-            </span>
-            <h2 className="font-display font-bold text-[22px] tracking-tight text-zinc-100">
-              Tổng Kết Buổi Tập
-            </h2>
-          </div>
+    <div className="flex flex-col min-h-full bg-zinc-950 text-zinc-100 w-full">
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-zinc-950/85 backdrop-blur-xl border-b border-white/10 w-full">
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+          <button
+            onClick={onBackToLogger}
+            className="apple-btn-secondary min-h-[44px] px-4 py-2 text-sm font-medium"
+          >
+            Quay lại
+          </button>
+
+          <h2 className="font-display font-bold text-lg text-zinc-100 tracking-tight truncate">
+            Tổng kết buổi tập
+          </h2>
 
           <button
-            onClick={onDiscard}
-            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 text-[13px] font-semibold flex items-center gap-2 transition-all duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-zinc-500"
+            onClick={handlePublish}
+            disabled={isPublishing}
+            className="apple-btn-primary min-h-[44px] px-4 py-2 text-sm font-semibold flex items-center gap-2 shrink-0"
           >
-            <RotateCcw className="w-4 h-4 stroke-[1.5]" />
-            <span>Sửa lại</span>
+            {isPublishing ? (
+              <Sparkles className="w-4 h-4 stroke-[1.75] animate-spin" />
+            ) : (
+              <Share2 className="w-4 h-4 stroke-[1.75]" />
+            )}
+            <span>{isPublishing ? 'Đang đăng...' : 'Đăng bảng tin'}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Summary Body */}
+      <div className="flex-1 px-4 sm:px-6 py-6 max-w-3xl mx-auto w-full flex flex-col gap-6">
+        {/* 1. PR Celebration Banner */}
+        <section
+          className="apple-card p-5 sm:p-6 flex items-center gap-4 border border-[#E4483C]/40 bg-gradient-to-r from-[#E4483C]/10 to-transparent"
+        >
+          <div
+            className="apple-icon-badge-accent w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+          >
+            🏆
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span
+              className="text-xs font-semibold block text-[#E4483C] tracking-wide uppercase"
+            >
+              Kỷ lục cá nhân mới
+            </span>
+            <h3 className="font-display font-bold text-lg text-zinc-100 tracking-tight leading-snug">
+              {topPR.exerciseName} {topPR.weight} kg × {topPR.reps} lần
+            </h3>
+            <p className="text-xs text-zinc-400">
+              Ước tính 1RM:{' '}
+              <strong className="font-display tabular-nums font-semibold text-zinc-200">
+                {topPR.e1rm} kg
+              </strong>{' '}
+              (+4.2 kg)
+            </p>
+          </div>
+        </section>
+
+        {/* 2. Session Analytics Matrix Bar */}
+        <section className="apple-card p-5 sm:p-6 flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
+            <h3 className="font-display text-base font-semibold text-zinc-100 tracking-tight">
+              Thông số buổi tập
+            </h3>
+            <span className="text-xs font-medium text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+              <CheckCircle2 className="w-3.5 h-3.5 stroke-[1.75]" />
+              <span>Hoàn thành</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-4 text-center">
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 flex flex-col items-center gap-2">
+              <Dumbbell className="w-5 h-5 text-[#E4483C] stroke-[1.75]" />
+              <span className="text-xs text-zinc-400 block">
+                Tổng tải
+              </span>
+              <span className="font-display tabular-nums text-base sm:text-lg font-bold text-[#E4483C] block tracking-tight">
+                {totalVolume.toLocaleString()} kg
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 flex flex-col items-center gap-2">
+              <Layers className="w-5 h-5 text-[#E4483C] stroke-[1.75]" />
+              <span className="text-xs text-zinc-400 block">
+                Hiệp tập
+              </span>
+              <span className="font-display tabular-nums text-base sm:text-lg font-bold text-zinc-100 block tracking-tight">
+                {totalSets} hiệp
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 flex flex-col items-center gap-2">
+              <Clock className="w-5 h-5 text-[#E4483C] stroke-[1.75]" />
+              <span className="text-xs text-zinc-400 block">
+                Thời lượng
+              </span>
+              <span className="font-display tabular-nums text-base sm:text-lg font-bold text-zinc-100 block tracking-tight">
+                {durationMinutes} phút
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* 2.5 Dynamic Vector SVG Muscle Heatmap Widget */}
+        <MuscleHeatmapWidget
+          muscleVolumes={heatmapDisplayVolumes}
+          setVolumeMap={muscleVolumeMap}
+          exercises={session.exercises}
+        />
+
+        {/* 2.8 Top Compound Lifts E1RM Summary (Bench, Squat, Deadlift) & Kỷ lục cá nhân Sync */}
+        <section className="apple-card p-5 sm:p-6 flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="apple-icon-badge-accent">
+                <Trophy className="w-4 h-4 stroke-[1.75]" />
+              </div>
+              <div className="flex flex-col">
+                <h4 className="font-display font-semibold text-base text-zinc-100 tracking-tight">
+                  1RM ước tính (E1RM) · 3 Bài Compound
+                </h4>
+                <span className="text-xs text-zinc-400">
+                  Tính từ hiệp nặng nhất buổi tập & tự động đồng bộ vào Kỷ lục cá nhân
+                </span>
+              </div>
+            </div>
+
+            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium inline-flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 stroke-[1.75]" />
+              <span>Đã đồng bộ Kỷ lục cá nhân</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {compoundLiftsSummary.map((lift) => (
+              <div
+                key={lift.key}
+                className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 flex flex-col justify-between gap-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-display font-semibold text-sm text-zinc-100 truncate">
+                    {lift.name}
+                  </span>
+                  <span className="text-lg shrink-0">{lift.icon}</span>
+                </div>
+
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs text-zinc-400">E1RM</span>
+                  <span
+                    className="font-display tabular-nums text-lg font-bold"
+                    style={{ color: lift.hasSessionSet ? '#F2F1ED' : '#656470' }}
+                  >
+                    {lift.hasSessionSet ? `${lift.e1rmKg} kg` : '-- kg'}
+                  </span>
+                </div>
+
+                <div
+                  className="h-1 w-full rounded-full"
+                  style={{ backgroundColor: lift.color }}
+                />
+
+                <span className="text-xs text-zinc-400 font-display tabular-nums truncate">
+                  {lift.hasSessionSet
+                    ? `Hiệp nặng nhất: ${lift.heaviestWeightKg}kg × ${lift.reps}${
+                        lift.rpe ? ` (RPE ${lift.rpe})` : ''
+                      }`
+                    : 'Chưa có trong buổi tập này'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 3. Strength Progression & Estimated 1RM (E1RM) Breakdown */}
+        <section className="apple-card p-5 sm:p-6 flex flex-col gap-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-white/10">
+            <div className="apple-icon-badge-accent">
+              <TrendingUp className="w-4 h-4 stroke-[1.75]" />
+            </div>
+            <h4 className="font-display font-semibold text-base text-zinc-100 tracking-tight">
+              Chi tiết bài tập & 1RM ước tính
+            </h4>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {exerciseProgressions.map((prog, idx) => {
+              return (
+                <div
+                  key={prog.exerciseId || idx}
+                  className="p-4 rounded-2xl bg-zinc-900/60 border border-white/5 flex flex-col gap-3"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-display font-semibold text-sm sm:text-base text-zinc-100 block">
+                        {prog.name}
+                      </span>
+                      <span className="text-xs text-zinc-400 block">
+                        {prog.vietnameseName} · Tổng tải: {prog.totalVolume.toLocaleString()} kg
+                      </span>
+                    </div>
+
+                    <div className="text-right shrink-0 flex flex-col gap-1">
+                      <span className="text-[11px] text-zinc-400 block">1RM cao nhất</span>
+                      <div className="flex items-center gap-1.5 justify-end font-display tabular-nums font-semibold text-sm text-[#E4483C]">
+                        <Flame className="w-3.5 h-3.5 fill-[#E4483C] text-[#E4483C] stroke-[1.75]" />
+                        <span>{prog.bestE1rm > 0 ? `${prog.bestE1rm} kg` : '--'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Set-by-Set Progression with semantic Plate-Code RPE color */}
+                  <div className="pt-3 border-t border-white/10 flex flex-wrap gap-2">
+                    {session.exercises[idx]?.sets.map((set, sIdx) => {
+                      const setE1rm = calculateE1RM(set.weight, set.reps, set.rpe);
+                      const isBestSet = prog.bestE1rm > 0 && setE1rm === prog.bestE1rm && set.weight > 0;
+                      const rpeColor = getRpePlateColor(set.rpe);
+
+                      return (
+                        <div
+                          key={set.id || sIdx}
+                          className="flex items-center gap-2 py-1.5 px-3 rounded-xl text-xs font-display tabular-nums border bg-zinc-950/60"
+                          style={{
+                            borderColor: isBestSet ? PLATE_CODE_COLORS.red : 'rgba(255, 255, 255, 0.08)',
+                          }}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: rpeColor }}
+                          />
+                          <span className="text-zinc-400">H{set.setNumber}:</span>
+                          <span className="text-zinc-200">
+                            {set.weight}kg × {set.reps}
+                          </span>
+                          <span className="text-zinc-500">→</span>
+                          <span
+                            className="font-semibold"
+                            style={{ color: isBestSet ? PLATE_CODE_COLORS.red : '#F2F1ED' }}
+                          >
+                            {setE1rm > 0 ? `${setE1rm} kg` : '--'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* 4. Media Upload */}
+        <section className="apple-card p-5 sm:p-6 flex flex-col gap-4">
+          <h4 className="font-display font-semibold text-base text-zinc-100 tracking-tight">
+            Hình ảnh & Video buổi tập
+          </h4>
+
+          <div className="grid grid-cols-3 gap-2.5">
+            <label className="apple-btn-secondary min-h-[44px] px-2 sm:px-4 py-2 text-xs font-medium flex items-center justify-center gap-2 cursor-pointer text-center">
+              <Video className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
+              <span className="truncate leading-none">Quay video</span>
+              <input
+                type="file"
+                accept="video/*"
+                capture="environment"
+                onChange={handleSummaryMediaSelect}
+                className="hidden"
+              />
+            </label>
+
+            <label className="apple-btn-secondary min-h-[44px] px-2 sm:px-4 py-2 text-xs font-medium flex items-center justify-center gap-2 cursor-pointer text-center">
+              <Camera className="w-4 h-4 text-[#3E8EDE] stroke-[1.75] shrink-0" />
+              <span className="truncate leading-none">Chụp ảnh</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleSummaryMediaSelect}
+                className="hidden"
+              />
+            </label>
+
+            <label className="apple-btn-secondary min-h-[44px] px-2 sm:px-4 py-2 text-xs font-medium flex items-center justify-center gap-2 cursor-pointer text-center">
+              <ImageIcon className="w-4 h-4 text-emerald-400 stroke-[1.75] shrink-0" />
+              <span className="truncate leading-none">Thư viện</span>
+              <input
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleSummaryMediaSelect}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {uploadedMedia && (
+            <div className="rounded-2xl overflow-hidden border border-white/10 bg-zinc-950 flex flex-col">
+              <div className="px-4 py-2.5 bg-zinc-900/80 border-b border-white/10 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-emerald-400 truncate">
+                  ✓ Đã đính kèm {uploadedMedia.type === 'video' ? 'Video' : 'Ảnh'} ({uploadedMedia.fileSizeLabel})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUploadedMedia(null)}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-[#E4483C] border border-rose-500/20 text-xs font-medium transition-all duration-200 active:scale-[0.96]"
+                >
+                  Xóa
+                </button>
+              </div>
+              <div className="relative w-full aspect-video max-h-60 bg-black flex items-center justify-center overflow-hidden">
+                {uploadedMedia.type === 'video' ? (
+                  <video
+                    src={uploadedMedia.url}
+                    controls
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <img
+                    src={uploadedMedia.url}
+                    alt="Uploaded workout media"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 5. Privacy & Location */}
+        <section className="apple-card p-5 sm:p-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-zinc-400 block">
+              Phòng tập
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={selectedGym}
+                onChange={(e) => setSelectedGym(e.target.value)}
+                placeholder="Nhập hoặc chọn phòng tập..."
+                className="apple-input w-full min-h-[44px] px-4 py-2 pr-10 text-sm truncate"
+              />
+              <MapPin className="w-4 h-4 text-[#E4483C] stroke-[1.75] absolute right-4 top-3.5 pointer-events-none" />
+            </div>
+            {activeCheckedInGym && (
+              <span className="text-xs text-[#E4483C] font-medium">
+                📍 Đã đồng bộ từ Check-in: {activeCheckedInGym.name} — {activeCheckedInGym.address}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-zinc-400 block">
+              Quyền riêng tư
+            </label>
+            <div className="apple-segmented-control grid grid-cols-3 gap-1">
+              {[
+                { id: 'public', label: 'Công khai', icon: '🌍' },
+                { id: 'friends', label: 'Bạn tập', icon: '👥' },
+                { id: 'private', label: 'Chỉ mình tôi', icon: '🔒' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setVisibility(item.id as any)}
+                  className={`min-h-[40px] py-2 px-2 sm:px-4 text-center rounded-xl text-xs font-medium transition-all duration-200 ease-out flex items-center justify-center gap-1.5 active:scale-[0.98] ${
+                    visibility === item.id
+                      ? 'bg-white/15 text-white font-semibold shadow-xs border border-white/10'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Caption */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-zinc-400 block">
+              Cảm nghĩ buổi tập
+            </label>
+            <textarea
+              rows={3}
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Hôm nay bài nào chất nhất? Rủ anh em đi tập đê..."
+              className="apple-input w-full p-4 text-sm resize-none"
+            />
+          </div>
+        </section>
+
+        {/* Export Story Flex Button & Publish Big Button */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={() => setIsFlexStoryModalOpen(true)}
+            className="apple-btn-secondary flex-1 min-h-[48px] px-5 py-3 text-sm font-semibold flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-5 h-5 text-[#E4483C] stroke-[1.75]" />
+            <span>Xuất Story Flex 🔥</span>
+          </button>
+
+          <button
+            onClick={handlePublish}
+            disabled={isPublishing}
+            className="apple-btn-primary flex-1 min-h-[48px] p-4 text-sm font-semibold flex items-center justify-center gap-2"
+          >
+            <Share2 className="w-5 h-5 stroke-[1.75]" />
+            <span>Đăng lên bảng tin Đi tập đê!</span>
           </button>
         </div>
 
-        {/* Shareable Workout Summary Card */}
-        <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900/50 backdrop-blur-md p-6 flex flex-col gap-6 shadow-sm">
-          {/* Card Brand Header */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <img
-                src={userAvatar}
-                alt={userName}
-                className="w-11 h-11 rounded-full object-cover border border-zinc-700"
-              />
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="font-display font-bold text-[15px] tracking-tight text-zinc-100">
-                    {userName}
-                  </span>
-                  <span className="text-[12px] font-medium text-emerald-400">
-                    • Chuột Chiến
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[12px] text-zinc-400">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400 stroke-[1.5]" />
-                  <span>{selectedGymName}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <span className="font-display font-bold text-[13px] tracking-tight text-emerald-400 block">
-                Đi tập đê!
-              </span>
-              <span className="text-[11px] font-normal text-zinc-400">
-                Hồ sơ tập luyện
-              </span>
-            </div>
-          </div>
-
-          {/* Workout Title & PR Highlight */}
-          <div className="flex flex-col gap-2.5">
-            <h3 className="font-display font-bold text-[20px] tracking-tight text-zinc-100">
-              {session.title}
-            </h3>
-            {topE1RM > 0 && (
-              <div className="inline-flex items-center gap-2 text-[12px] font-semibold text-emerald-400">
-                <TrendingUp className="w-4 h-4 stroke-[1.5]" />
-                <span>
-                  Kỷ lục 1RM: {topExerciseName} •{' '}
-                  <strong className="font-display tabular-nums">{topE1RM} kg</strong>
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Attached Photo/Video Preview Inside Card */}
-          {attachedMedia.length > 0 && (
-            <div className="grid grid-cols-2 gap-3">
-              {attachedMedia.map((media, idx) => (
-                <div
-                  key={`${media.fileName || 'm'}-${idx}`}
-                  className="relative rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 aspect-4/3 group"
-                >
-                  {media.type === 'video' ? (
-                    <video
-                      src={media.url}
-                      controls
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <img
-                      src={media.url}
-                      alt={media.fileName || 'Ảnh buổi tập'}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveMedia(idx)}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-zinc-950/80 text-zinc-100 hover:bg-red-500 hover:text-zinc-950 flex items-center justify-center transition-all duration-200 ease-in-out"
-                    title="Xóa ảnh/video"
-                  >
-                    <X className="w-4 h-4 stroke-[1.5]" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Core Metrics & Muscle Heatmap */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center bg-zinc-950/60 p-5 rounded-xl border border-zinc-800/80">
-            <div className="sm:col-span-7 grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[12px] font-normal text-zinc-400 block">
-                  Tổng tải trọng
-                </span>
-                <span className="font-display tabular-nums text-[22px] font-bold tracking-tight text-zinc-100">
-                  {totalVolume.toLocaleString('vi-VN')}
-                </span>
-                <span className="text-[12px] text-emerald-400 font-semibold">
-                  kilogram (kg)
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[12px] font-normal text-zinc-400 block">
-                  Thời lượng
-                </span>
-                <span className="font-display tabular-nums text-[22px] font-bold tracking-tight text-zinc-100">
-                  {formatDurationReadout(session.durationSeconds)}
-                </span>
-                <span className="text-[12px] text-zinc-400 font-normal">
-                  {completedSets} hiệp hoàn tất
-                </span>
-              </div>
-
-              <div className="col-span-2 pt-3 border-t border-zinc-800/80 flex flex-col gap-1.5">
-                <span className="text-[12px] font-normal text-zinc-400 block">
-                  Bài tập tiêu biểu
-                </span>
-                <div className="flex flex-col gap-1.5">
-                  {session.exercises.slice(0, 3).map((ex) => {
-                    const bestInfo = getSetsBestE1RM(ex.sets);
-                    const best = bestInfo ? bestInfo.e1rm : 85;
-                    return (
-                      <div
-                        key={ex.id}
-                        className="flex items-center justify-between text-[13px]"
-                      >
-                        <span className="text-zinc-200 font-medium truncate pr-2">
-                          {ex.sets.length}× {ex.name}
-                        </span>
-                        <span className="font-display tabular-nums text-emerald-400 font-semibold shrink-0">
-                          1RM: {best} kg
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="sm:col-span-5 flex justify-center">
-              <MuscleHeatmap
-                volumeMap={
-                  Object.keys(muscleVolumes).length > 0
-                    ? muscleVolumes
-                    : { chest: 8, front_delts: 5, triceps: 6 }
-                }
-              />
-            </div>
-          </div>
-
-          {/* Open Story Flex Generator Modal Trigger */}
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-800/80">
-            <span className="text-[12px] font-normal text-zinc-400">
-              Tạo ảnh dọc 9:16 khoe thành tích lên Story
-            </span>
-
-            <button
-              type="button"
-              onClick={() => setShowStoryModal(true)}
-              className="min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 text-[13px] font-semibold flex items-center gap-2 transition-all duration-200 ease-in-out hover:scale-[1.02] shadow-sm focus:outline-hidden focus:ring-2 focus:ring-zinc-500"
-            >
-              <Sparkles className="w-4 h-4 stroke-[1.5]" />
-              <span>Tạo Story Flex 9:16</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Post Customization Form */}
-        <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800 rounded-2xl p-6 flex flex-col gap-5 shadow-sm">
-          <div className="flex flex-col gap-2">
-            <label
-              htmlFor="workout-caption"
-              className="text-[13px] font-semibold text-zinc-200 block"
-            >
-              Cảm nghĩ sau buổi tập
-            </label>
-            <textarea
-              id="workout-caption"
-              rows={2}
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Hôm nay mức tạ thế nào? Chia sẻ cùng hội anh em..."
-              className="w-full rounded-xl bg-zinc-950 border border-zinc-800 p-3.5 text-[14px] text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-hidden focus:ring-2 focus:ring-zinc-500"
-            />
-          </div>
-
-          {/* Photo & Video Attachment Section */}
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-zinc-200 flex items-center gap-1.5">
-                <Camera className="w-4 h-4 text-emerald-400 stroke-[1.5]" />
-                Hình ảnh / Video buổi tập
-              </span>
-              <span className="text-[11px] text-zinc-400">
-                Đồng bộ lên Bảng tin & nền Story Flex
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <label className="min-h-[44px] px-4 py-2.5 rounded-xl bg-zinc-950/60 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-200 text-[13px] font-semibold flex items-center gap-2 cursor-pointer transition-all duration-200 ease-in-out">
-                <ImageIcon className="w-4 h-4 text-emerald-400 stroke-[1.5]" />
-                <span>{mediaUploading ? 'Đang xử lý...' : 'Thêm Ảnh / Video'}</span>
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  onChange={handleMediaFileUpload}
-                  className="hidden"
-                />
-              </label>
-
-              {attachedMedia.length > 0 && (
-                <span className="text-[12px] text-emerald-400 font-semibold">
-                  Đã đính kèm {attachedMedia.length} file
-                </span>
-              )}
-            </div>
-
-            {mediaUploadError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between gap-2 text-[12px] text-red-400">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 stroke-[1.5] shrink-0" />
-                  <span>{mediaUploadError}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMediaUploadError(null)}
-                  className="text-zinc-400 hover:text-zinc-100 p-1"
-                  aria-label="Đóng thông báo lỗi"
-                >
-                  <X className="w-3.5 h-3.5 stroke-[1.5]" />
-                </button>
-              </div>
-            )}
-
-            {attachedMedia.length > 0 && (
-              <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar pt-1">
-                {attachedMedia.map((item, idx) => (
-                  <div
-                    key={`thumb-${idx}`}
-                    className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 shrink-0"
-                  >
-                    {item.type === 'video' ? (
-                      <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                        <Video className="w-6 h-6 text-emerald-400 stroke-[1.5]" />
-                      </div>
-                    ) : (
-                      <img
-                        src={item.url}
-                        alt={item.fileName || 'thumb'}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveMedia(idx)}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-zinc-950/80 text-zinc-100 flex items-center justify-center"
-                    >
-                      <X className="w-3 h-3 stroke-[1.5]" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Searchable Gym Check-in Selector */}
-          <div className="flex flex-col gap-2 relative">
-            <div className="flex items-center justify-between">
-              <label className="text-[13px] font-semibold text-zinc-200 flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-emerald-400 stroke-[1.5]" />
-                Điểm danh phòng tập (Check-in)
-              </label>
-              <span className="text-[11px] text-zinc-400">
-                {GYM_VENUES.length} cơ sở toàn quốc
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsGymDropdownOpen((prev) => !prev)}
-              className="w-full min-h-[48px] rounded-xl bg-zinc-950 border border-zinc-800 hover:border-zinc-700 px-3.5 py-2.5 text-left flex items-center justify-between gap-2 transition-all duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-zinc-500"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <MapPin className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
-                <span className="text-[14px] text-zinc-100 font-medium truncate">
-                  {selectedGymName}
-                </span>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-zinc-400 stroke-[1.5] shrink-0 transition-transform ${
-                  isGymDropdownOpen ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-
-            {isGymDropdownOpen && (
-              <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-3 flex flex-col gap-2.5 shadow-2xl">
-                <div className="relative">
-                  <Search className="w-4 h-4 text-zinc-400 stroke-[1.5] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={gymSearchQuery}
-                    onChange={(e) => setGymSearchQuery(e.target.value)}
-                    placeholder="Gõ tên phòng tập, quận hoặc thành phố..."
-                    className="w-full min-h-[40px] pl-9 pr-8 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[13px] text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-hidden"
-                  />
-                  {gymSearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setGymSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100"
-                    >
-                      <X className="w-3.5 h-3.5 stroke-[1.5]" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="max-h-52 overflow-y-auto flex flex-col gap-1 pr-1">
-                  {filteredGyms.map((g) => {
-                    const isSelected = g.name === selectedGymName;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedGymName(g.name);
-                          setIsGymDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg transition-all duration-200 ease-in-out flex items-start justify-between gap-2 ${
-                          isSelected
-                            ? 'bg-emerald-500/15 border border-emerald-500/40 text-zinc-100'
-                            : 'hover:bg-zinc-900 text-zinc-300'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <div className="text-[13px] font-semibold truncate">
-                            {g.name}
-                          </div>
-                          <div className="text-[11px] text-zinc-400 truncate">
-                            {g.city} • {g.address}
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <Check className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0 mt-0.5" />
-                        )}
-                      </button>
-                    );
-                  })}
-
-                  {gymSearchQuery.trim().length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedGymName(gymSearchQuery.trim());
-                        setIsGymDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-emerald-400 text-[12px] font-semibold flex items-center gap-2"
-                    >
-                      <MapPin className="w-3.5 h-3.5 stroke-[1.5] shrink-0" />
-                      <span>Check-in địa điểm tự nhập: "{gymSearchQuery.trim()}"</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[14px] font-semibold text-zinc-100 block">
-                Cho phép sao chép giáo án (Fork)
-              </span>
-              <span className="text-[12px] text-zinc-400">
-                Anh em trong CLB có thể lưu và tập theo lịch của bạn
-              </span>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={shareToFeed}
-              onClick={() => setShareToFeed(!shareToFeed)}
-              className={`min-w-[48px] min-h-[28px] w-12 h-7 rounded-full p-1 transition-all duration-200 ease-in-out flex items-center ${
-                shareToFeed
-                  ? 'bg-emerald-500 justify-end'
-                  : 'bg-zinc-800 justify-start'
-              }`}
-            >
-              <span className="w-5 h-5 rounded-full bg-zinc-950 block shadow-xs" />
-            </button>
-          </div>
-        </div>
-
-        {/* Publish CTA */}
-        <button
-          onClick={handlePublish}
-          className="w-full min-h-[52px] py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-semibold text-[16px] flex items-center justify-center gap-2 transition-all duration-200 ease-in-out hover:scale-[1.01] shadow-sm focus:outline-hidden focus:ring-2 focus:ring-zinc-500"
-        >
-          <Check className="w-5 h-5 stroke-[1.5]" />
-          <span>Đăng lên Bảng Tin CLB</span>
-        </button>
+        <FlexStoryModal
+          isOpen={isFlexStoryModalOpen}
+          onClose={() => setIsFlexStoryModalOpen(false)}
+          userName="Tùng Nguyễn"
+          userHandle="tung_powerbuilder"
+          gymLocation={selectedGym || '📍 Strongman Gym'}
+          workoutTitle={session.title || 'Gánh Đùi & Mông (Leg Day)'}
+          totalVolumeKg={totalVolume}
+          totalSets={totalSets}
+          durationFormatted={`${String(Math.floor(durationMinutes / 60)).padStart(2, '0')}:${String(durationMinutes % 60).padStart(2, '0')}:00`}
+          prBadgeText={
+            topPR
+              ? `NEW PR: ${topPR.exerciseName} ${topPR.weight}kg × ${topPR.reps} reps!`
+              : 'NEW PR: Squat 140kg × 3 reps!'
+          }
+          muscleSetCounts={{
+            Ngực: heatmapDisplayVolumes.Chest,
+            Lưng: heatmapDisplayVolumes.Back,
+            Vai: heatmapDisplayVolumes.Shoulders,
+            Tay: heatmapDisplayVolumes.Arms,
+            Bụng: heatmapDisplayVolumes.Core,
+            Chân: heatmapDisplayVolumes.Legs,
+          }}
+          backgroundMedia={uploadedMedia}
+          onUpdateBackgroundMedia={(media) => {
+            if (!media) {
+              setUploadedMedia(null);
+            } else {
+              setUploadedMedia({
+                type: media.type,
+                url: media.url,
+                fileName: media.fileName || 'story_bg',
+                fileSizeLabel: media.fileSizeLabel || '',
+              });
+            }
+          }}
+        />
       </div>
-
-      {/* 9:16 Social Flex Story Modal */}
-      <FlexStoryModal
-        isOpen={showStoryModal}
-        onClose={() => setShowStoryModal(false)}
-        userName={userName}
-        userHandle={userHandle}
-        gymLocation={`📍 ${selectedGymName}`}
-        workoutTitle={session.title}
-        totalVolumeKg={totalVolume}
-        totalSets={completedSets}
-        durationFormatted={formatDurationReadout(session.durationSeconds)}
-        prBadgeText={
-          topE1RM > 0
-            ? `KỶ LỤC MỚI: ${topExerciseName.toUpperCase()} (${topE1RM}KG 1RM)`
-            : 'HOÀN THÀNH 100% GIÁO ÁN HÔM NAY'
-        }
-        muscleSetCounts={muscleSetCounts}
-        backgroundMedia={primaryStoryMedia}
-        onUpdateBackgroundMedia={handleStoryBackgroundUpdate}
-      />
     </div>
   );
 };

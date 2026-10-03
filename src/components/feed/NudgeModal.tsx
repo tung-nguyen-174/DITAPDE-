@@ -90,17 +90,19 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-zinc-950/75 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md"
       onClick={onClose}
     >
       <div
-        className="backdrop-blur-md bg-zinc-900/95 border border-zinc-800 rounded-2xl w-full max-w-md max-h-[88dvh] flex flex-col overflow-hidden p-6 gap-6 shadow-2xl"
+        className="backdrop-blur-2xl bg-zinc-950/95 border border-white/10 rounded-3xl w-full max-w-md max-h-[88dvh] flex flex-col overflow-hidden p-6 gap-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky Header */}
-        <div className="flex items-center justify-between gap-3 pb-4 border-b border-zinc-800 shrink-0">
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <GymChuotLogo size="sm" />
+            <div className="apple-icon-badge-accent">
+              <Zap className="w-5 h-5 stroke-[1.75]" />
+            </div>
             <div className="flex flex-col gap-0.5 min-w-0">
               <h3 className="font-display font-bold tracking-tight text-lg text-zinc-100 truncate">
                 Nhắc tập "Đi tập đê!"
@@ -113,22 +115,22 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Đóng nhắc tập"
-            className="min-w-[40px] min-h-[40px] w-10 h-10 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500 shrink-0"
+            className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 active:scale-[0.96] shrink-0"
           >
-            <X className="w-5 h-5 stroke-[1.5]" />
+            <X className="w-5 h-5 stroke-[1.75]" />
           </button>
         </div>
 
         {isSent ? (
           <div className="py-8 flex flex-col items-center text-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <CheckCircle2 className="w-8 h-8 stroke-[1.5]" />
+            <div className="apple-icon-badge-accent w-16 h-16 rounded-2xl">
+              <CheckCircle2 className="w-8 h-8 stroke-[1.75]" />
             </div>
             <h4 className="font-display text-lg font-bold tracking-tight text-zinc-100">
               Đã gửi lời nhắc tập thành công!
             </h4>
             <p className="text-sm text-zinc-400 max-w-xs leading-relaxed">
-              Thông báo <span className="text-emerald-400 font-medium">"{effectiveMessage}"</span> đã gửi tới{' '}
+              Thông báo <span className="text-[#E4483C] font-semibold">"{effectiveMessage}"</span> đã gửi tới{' '}
               <span className="text-zinc-100 font-semibold">{buddy.name}</span>. Hẹn gặp nhau ở phòng tập!
             </p>
           </div>
@@ -137,20 +139,20 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
             {/* Scrollable Body */}
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-0.5">
               {/* Target Buddy Info */}
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-zinc-950/70 border border-zinc-800 shrink-0">
+              <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] shrink-0">
                 <img
                   src={buddy.avatar}
                   alt={buddy.name}
                   referrerPolicy="no-referrer"
-                  className="w-12 h-12 rounded-xl object-cover border border-zinc-800 shrink-0"
+                  className="w-12 h-12 rounded-2xl object-cover border border-white/10 shrink-0 shadow-xs"
                 />
                 <div className="flex-1 min-w-0 flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-display font-bold tracking-tight text-sm sm:text-base text-zinc-100 truncate">
                       {buddy.name}
                     </span>
-                    <span className="text-xs font-display font-medium text-emerald-400 flex items-center gap-1 shrink-0">
-                      <Flame className="w-3.5 h-3.5 stroke-[1.5]" />
+                    <span className="text-xs font-display font-medium text-[#E4483C] flex items-center gap-1 shrink-0">
+                      <Flame className="w-3.5 h-3.5 stroke-[1.75] fill-current" />
                       {buddy.streakWeeks} tuần
                     </span>
                   </div>
@@ -168,13 +170,13 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCustomSelected((prev) => !prev)}
-                  className={`min-h-[40px] text-xs font-medium flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500 shrink-0 ${
+                  className={`min-h-[38px] text-xs font-medium flex items-center gap-2 px-3.5 py-1.5 rounded-xl border transition-all duration-200 active:scale-[0.98] shrink-0 ${
                     isCustomSelected
-                      ? 'bg-emerald-500 text-zinc-950 border-emerald-500 font-semibold'
-                      : 'bg-zinc-950 text-zinc-100 border-zinc-800 hover:bg-zinc-800/60'
+                      ? 'apple-btn-accent text-white font-semibold'
+                      : 'apple-btn-secondary text-zinc-200'
                   }`}
                 >
-                  <Edit3 className="w-4 h-4 stroke-[1.5] shrink-0" />
+                  <Edit3 className="w-3.5 h-3.5 stroke-[1.75] shrink-0" />
                   <span>{isCustomSelected ? 'Đang tự soạn' : 'Tự soạn lời nhắn'}</span>
                 </button>
               </div>
@@ -184,18 +186,18 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
                 {/* Custom Nudge Composer Option */}
                 <div
                   onClick={() => setIsCustomSelected(true)}
-                  className={`w-full rounded-xl border transition-all duration-200 p-4 cursor-pointer flex flex-col gap-3 ${
+                  className={`w-full rounded-2xl border transition-all duration-200 p-4 cursor-pointer flex flex-col gap-3 ${
                     isCustomSelected
-                      ? 'bg-emerald-500/10 border-emerald-500/40'
-                      : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700'
+                      ? 'bg-[#E4483C]/10 border-[#E4483C]/40 shadow-xs'
+                      : 'bg-white/[0.03] border-white/[0.08] hover:border-white/20'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-emerald-400 flex items-center gap-2">
-                      <Edit3 className="w-4 h-4 stroke-[1.5] shrink-0" />
+                    <span className="text-xs font-semibold text-[#E4483C] flex items-center gap-2">
+                      <Edit3 className="w-4 h-4 stroke-[1.75] shrink-0" />
                       <span>Tự soạn lời nhắn của riêng bạn</span>
                     </span>
-                    {isCustomSelected && <Zap className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />}
+                    {isCustomSelected && <Zap className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />}
                   </div>
                   <div
                     className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5"
@@ -211,16 +213,16 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
                       }}
                       maxLength={120}
                       placeholder={`Nhập lời nhắn gửi ${buddy.name.split(' ')[0]}...`}
-                      className="w-full min-w-0 flex-1 min-h-[44px] bg-zinc-950 border border-zinc-800 focus:ring-2 focus:ring-zinc-500 focus:outline-none rounded-xl px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 transition-all duration-200"
+                      className="w-full min-w-0 flex-1 min-h-[44px] bg-black/40 border border-white/10 focus:border-[#E4483C] focus:outline-none rounded-2xl px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 transition-all duration-200"
                     />
                     {customMessage.trim().length > 0 && (
                       <button
                         type="button"
                         onClick={handleSaveCustomToPresets}
-                        className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold shrink-0 flex items-center justify-center gap-1.5 transition-all duration-200"
+                        className="apple-btn-primary min-h-[44px] px-4 py-2 text-xs font-semibold shrink-0 gap-1.5"
                         title="Lưu vào danh sách mẫu của bạn"
                       >
-                        <Plus className="w-4 h-4 stroke-[1.5] shrink-0" />
+                        <Plus className="w-4 h-4 stroke-[1.75] shrink-0" />
                         <span>Lưu mẫu</span>
                       </button>
                     )}
@@ -238,28 +240,28 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
                         setSelectedMessage(msg);
                         setIsCustomSelected(false);
                       }}
-                      className={`w-full min-h-[48px] text-left p-3.5 rounded-xl text-sm font-normal border transition-all duration-200 flex items-center justify-between gap-3 ${
+                      className={`w-full min-h-[48px] text-left p-3.5 rounded-2xl text-sm font-normal border transition-all duration-200 flex items-center justify-between gap-3 active:scale-[0.98] ${
                         isActive
-                          ? 'bg-emerald-500/10 border-emerald-500/40 text-zinc-100'
-                          : 'bg-zinc-950/60 border-zinc-800 text-zinc-300 hover:bg-zinc-800/60'
+                          ? 'bg-[#E4483C]/15 border-[#E4483C]/50 text-zinc-100 shadow-xs'
+                          : 'bg-white/[0.03] border-white/[0.08] text-zinc-300 hover:bg-white/[0.06]'
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="text-xs font-semibold text-emerald-400 shrink-0">
+                        <span className="text-xs font-semibold text-[#E4483C] shrink-0">
                           Mẫu ·
                         </span>
                         <span className="break-words line-clamp-2">{msg}</span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {isActive && <Zap className="w-4 h-4 text-emerald-400 stroke-[1.5]" />}
+                        {isActive && <Zap className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />}
                         <span
                           role="button"
                           tabIndex={0}
                           onClick={(e) => handleDeleteCustomPreset(msg, e)}
-                          className="min-w-[36px] min-h-[36px] w-9 h-9 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-all duration-200"
+                          className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 border border-white/10 flex items-center justify-center transition-all duration-200"
                           title="Xóa mẫu lời nhắn này"
                         >
-                          <Trash2 className="w-4 h-4 stroke-[1.5]" />
+                          <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
                         </span>
                       </div>
                     </button>
@@ -277,14 +279,14 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
                         setSelectedMessage(msg);
                         setIsCustomSelected(false);
                       }}
-                      className={`w-full min-h-[48px] text-left p-3.5 rounded-xl text-sm font-normal border transition-all duration-200 flex items-center justify-between gap-3 ${
+                      className={`w-full min-h-[48px] text-left p-3.5 rounded-2xl text-sm font-normal border transition-all duration-200 flex items-center justify-between gap-3 active:scale-[0.98] ${
                         isActive
-                          ? 'bg-emerald-500/10 border-emerald-500/40 text-zinc-100 font-medium'
-                          : 'bg-zinc-950/60 border-zinc-800 text-zinc-300 hover:bg-zinc-800/60'
+                          ? 'bg-[#E4483C]/15 border-[#E4483C]/50 text-zinc-100 font-semibold shadow-xs'
+                          : 'bg-white/[0.03] border-white/[0.08] text-zinc-300 hover:bg-white/[0.06]'
                       }`}
                     >
                       <span className="leading-snug">{msg}</span>
-                      {isActive && <Zap className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />}
+                      {isActive && <Zap className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />}
                     </button>
                   );
                 })}
@@ -292,14 +294,14 @@ export const NudgeModal: React.FC<NudgeModalProps> = ({
             </div>
 
             {/* Sticky Submit Button Footer */}
-            <div className="pt-4 border-t border-zinc-800 shrink-0">
+            <div className="pt-4 border-t border-white/10 shrink-0">
               <button
                 type="button"
                 onClick={handleSend}
                 disabled={isCustomSelected && !customMessage.trim()}
-                className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-zinc-950 font-semibold text-sm shadow-sm transition-all duration-200 ease-in-out hover:scale-[1.01] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 flex items-center justify-center gap-2"
+                className="apple-btn-primary w-full min-h-[48px] py-3 px-4 text-sm font-semibold gap-2 disabled:opacity-40"
               >
-                <Bell className="w-4 h-4 stroke-[1.5] shrink-0" />
+                <Bell className="w-4 h-4 stroke-[1.75] shrink-0" />
                 <span>
                   {isCustomSelected && customMessage.trim()
                     ? 'Gửi lời nhắn tự soạn ngay'

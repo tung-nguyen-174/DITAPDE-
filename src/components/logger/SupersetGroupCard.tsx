@@ -92,24 +92,24 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
   }, 0);
 
   return (
-    <section className="bg-[#1F1E24] rounded-[20px] border-2 border-[#E0B93D]/60 p-4 sm:p-6 flex flex-col gap-5">
+    <section className="apple-card p-5 sm:p-6 border border-[#E0B93D]/50 flex flex-col gap-5">
       {/* 1. Superset / Tri-set Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-[#35343C]">
+      <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-white/10">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-[14px] bg-[#E0B93D]/15 border border-[#E0B93D]/40 flex items-center justify-center text-[#E0B93D] shrink-0">
-            <Layers className="w-5 h-5" />
+          <div className="w-11 h-11 rounded-2xl bg-[#E0B93D]/15 border border-[#E0B93D]/40 flex items-center justify-center text-[#E0B93D] shrink-0 backdrop-blur-md shadow-xs">
+            <Layers className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-display font-bold text-[17px] text-[#F2F1ED]">
+              <h3 className="font-display font-bold text-base sm:text-lg text-zinc-100 tracking-tight">
                 {group.title ||
                   (group.groupType === 'TRISET' ? 'Tri-set 3 Bài' : 'Superset 2 Bài')}
               </h3>
-              <span className="text-[12px] text-[#E0B93D] font-semibold">
+              <span className="text-xs text-[#E0B93D] font-semibold">
                 · Xen kẽ từng vòng (Interleaved)
               </span>
             </div>
-            <p className="text-[12px] text-[#9C9AA3]">
+            <p className="text-xs text-zinc-400">
               {activeStep
                 ? `Đang tới lượt: [${activeStep.stationCode}] ${activeStep.exerciseName} · Vòng ${activeStep.roundNumber}`
                 : 'Đã hoàn thành toàn bộ các vòng trong nhóm!'}
@@ -120,10 +120,10 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
         <button
           type="button"
           onClick={() => onUngroup(group.id)}
-          className="min-h-[44px] px-3.5 py-2 rounded-[12px] bg-[#28272E] hover:bg-[#E4483C]/20 text-[#9C9AA3] hover:text-[#E4483C] border border-[#35343C] text-[12px] font-semibold transition flex items-center gap-1.5 shrink-0"
+          className="apple-btn-secondary min-h-[40px] px-3.5 py-1.5 text-xs font-semibold gap-1.5 shrink-0"
           title="Tách nhóm Superset/Tri-set về các bài đơn lẻ"
         >
-          <Unlink className="w-4 h-4" />
+          <Unlink className="w-4 h-4 stroke-[1.75]" />
           <span>Tách nhóm</span>
         </button>
       </div>
@@ -135,26 +135,26 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
           return (
             <div
               key={ex.id}
-              className="p-3 rounded-[14px] bg-[#17161A] border border-[#35343C] flex flex-col gap-2"
+              className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] flex flex-col gap-2"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="px-2 py-0.5 rounded-[8px] bg-[#E0B93D]/20 text-[#E0B93D] font-display text-[12px] font-bold shrink-0">
+                  <span className="px-2 py-0.5 rounded-lg bg-[#E0B93D]/20 border border-[#E0B93D]/30 text-[#E0B93D] font-display text-xs font-bold shrink-0">
                     {prefixLetter}
                     {idx + 1}
                   </span>
-                  <span className="font-display text-[14px] font-semibold text-[#F2F1ED] truncate">
+                  <span className="font-display text-sm font-semibold text-zinc-100 truncate tracking-tight">
                     {ex.name}
                   </span>
                 </div>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-[#9C9AA3] truncate">{ex.vietnameseName}</span>
+                <span className="text-xs text-zinc-400 truncate">{ex.vietnameseName}</span>
                 <select
                   aria-label={`Phân loại tải ${ex.name}`}
                   value={exType}
                   onChange={(e) => onChangeExerciseType(exIdx, e.target.value as ExerciseType)}
-                  className="bg-[#28272E] border border-[#35343C] rounded-[10px] px-2 py-1 text-[11px] font-medium text-[#F2F1ED] focus:outline-hidden focus:border-[#E0B93D]"
+                  className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1 text-xs font-medium text-zinc-200 focus:outline-none focus:border-[#E0B93D]"
                 >
                   {EXERCISE_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -169,9 +169,9 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
       </div>
 
       {/* 3. Intra-Superset vs Inter-Round Rest Timer Configuration */}
-      <div className="p-3 rounded-[14px] bg-[#17161A] border border-[#35343C] flex flex-wrap items-center justify-between gap-3 text-[12px]">
-        <div className="flex items-center gap-2 text-[#9C9AA3]">
-          <Clock className="w-4 h-4 text-[#E0B93D]" />
+      <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 text-zinc-400">
+          <Clock className="w-4 h-4 text-[#E0B93D] stroke-[1.75]" />
           <span>Chuyển bài (Intra-rest):</span>
           <select
             aria-label="Thời gian nghỉ chuyển bài"
@@ -179,7 +179,7 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
             onChange={(e) =>
               onUpdateGroupRest(group.id, Number(e.target.value), group.interRoundRestSeconds)
             }
-            className="bg-[#28272E] border border-[#35343C] rounded-[10px] px-2 py-1 font-display font-semibold text-[#F2F1ED]"
+            className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1 font-display font-semibold text-zinc-100"
           >
             <option value={0}>0s (Chuyển ngay)</option>
             <option value={15}>15s</option>
@@ -188,7 +188,7 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
           </select>
         </div>
 
-        <div className="flex items-center gap-2 text-[#9C9AA3]">
+        <div className="flex items-center gap-2 text-zinc-400">
           <span>Nghỉ hết vòng (Inter-round):</span>
           <select
             aria-label="Thời gian nghỉ hết vòng"
@@ -196,7 +196,7 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
             onChange={(e) =>
               onUpdateGroupRest(group.id, group.intraRestSeconds, Number(e.target.value))
             }
-            className="bg-[#28272E] border border-[#35343C] rounded-[10px] px-2 py-1 font-display font-semibold text-[#E0B93D]"
+            className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1 font-display font-semibold text-[#E0B93D]"
           >
             <option value={60}>60s</option>
             <option value={90}>90s</option>
@@ -211,27 +211,27 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
         {rounds.map((round) => (
           <div
             key={round.roundNumber}
-            className={`p-3.5 rounded-[16px] border flex flex-col gap-3 transition-all ${
+            className={`p-4 rounded-2xl border flex flex-col gap-3 transition-all ${
               round.isRoundCompleted
-                ? 'bg-[#4CAF6D]/5 border-[#4CAF6D]/50'
-                : 'bg-[#17161A]/70 border-[#35343C]'
+                ? 'bg-emerald-500/[0.04] border-emerald-500/40'
+                : 'bg-white/[0.02] border-white/10'
             }`}
           >
-            <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#35343C]">
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <span className="font-display font-bold text-[14px] text-[#F2F1ED]">
+                <span className="font-display font-bold text-sm text-zinc-100 tracking-tight">
                   Vòng {round.roundNumber}
                 </span>
-                <span className="text-[12px] text-[#9C9AA3]">
+                <span className="text-xs text-zinc-400">
                   · Hoàn thành {round.completedCount}/{round.totalCount} bài
                 </span>
               </div>
-              <span className="text-[11px] font-display tabular-nums text-[#E0B93D]">
+              <span className="text-xs font-display tabular-nums text-[#E0B93D]">
                 Hết vòng nghỉ {round.interRoundRestSeconds}s
               </span>
             </div>
 
-            <div className="grid grid-cols-12 gap-2 text-[11px] font-medium text-[#9C9AA3] px-2 text-center items-center">
+            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-zinc-400 px-2 text-center items-center">
               <div className="col-span-1">Trạm</div>
               <div className="col-span-2 text-left pl-1">Trước / Tải</div>
               <div className="col-span-2">{unit === 'lbs' ? 'Lbs' : 'Kg'}</div>
@@ -274,19 +274,19 @@ export const SupersetGroupCard: React.FC<SupersetGroupCardProps> = ({
       </div>
 
       {/* 5. Add Round CTA & Group Volume */}
-      <div className="pt-3 border-t border-[#35343C] flex items-center justify-between gap-4">
+      <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-4">
         <button
           type="button"
           onClick={() => onAddRoundToGroup(group.id)}
-          className="min-h-[48px] px-4 py-2 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#E0B93D] text-[13px] font-semibold border border-[#35343C] transition flex items-center gap-2"
+          className="apple-btn-secondary min-h-[44px] px-4 py-2 text-xs sm:text-sm font-semibold gap-2 text-[#E0B93D]"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 stroke-[1.75]" />
           <span>Thêm vòng mới cho cả nhóm</span>
         </button>
 
-        <div className="text-[13px] text-[#9C9AA3] font-display tabular-nums">
+        <div className="text-xs text-zinc-400 font-display tabular-nums">
           Tổng tải nhóm:{' '}
-          <span className="font-semibold text-[#F2F1ED]">
+          <span className="font-semibold text-zinc-100">
             {UnitConverter.formatPlateWeight(groupTotalVolumeKg, unit)}
           </span>
         </div>

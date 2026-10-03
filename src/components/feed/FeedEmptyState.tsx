@@ -34,12 +34,12 @@ export const FeedEmptyState: React.FC<FeedEmptyStateProps> = ({
   }[variant];
 
   return (
-    <section className="w-full backdrop-blur-md bg-zinc-900/50 rounded-2xl border border-zinc-800 p-6 sm:p-8 flex flex-col gap-6 shadow-sm">
+    <section className="apple-card w-full p-6 sm:p-8 flex flex-col gap-6">
       {/* Top Header Row */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0">
-            <Dumbbell className="w-5 h-5 text-emerald-400 stroke-[1.5]" />
+          <div className="apple-icon-badge-accent shrink-0">
+            <Dumbbell className="w-5 h-5 stroke-[1.75]" />
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-zinc-400">
@@ -58,7 +58,7 @@ export const FeedEmptyState: React.FC<FeedEmptyStateProps> = ({
       </p>
 
       {/* Zero-Data Telemetry Preview Strip */}
-      <div className="bg-zinc-950/60 rounded-xl border border-zinc-800 p-5 flex flex-col gap-4">
+      <div className="bg-zinc-950/60 rounded-2xl border border-white/10 p-5 flex flex-col gap-4">
         <div className="grid grid-cols-3 gap-4">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-zinc-400">Tổng tải trọng</span>
@@ -74,19 +74,19 @@ export const FeedEmptyState: React.FC<FeedEmptyStateProps> = ({
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs text-zinc-400">Cường độ RPE</span>
-            <span className="font-display tabular-nums text-base font-bold text-emerald-400">
+            <span className="font-display tabular-nums text-base font-bold text-[#E4483C]">
               Chưa đo
             </span>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-zinc-400">
+        <div className="pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-zinc-400">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
+            <Activity className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
             <span>Tự động vẽ bản đồ cơ bắp sau buổi tập</span>
           </div>
           <div className="flex items-center gap-2">
-            <Flame className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
+            <Flame className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
             <span>Giữ chuỗi tuần & nhận Dap từ bạn tập</span>
           </div>
         </div>
@@ -97,18 +97,18 @@ export const FeedEmptyState: React.FC<FeedEmptyStateProps> = ({
         <button
           type="button"
           onClick={onStartWorkout}
-          className="w-full sm:flex-1 min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-sm font-semibold shadow-sm transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 flex items-center justify-center gap-2"
+          className="apple-btn-primary w-full sm:flex-1 min-h-[44px] px-5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
         >
-          <Zap className="w-4 h-4 stroke-[1.5]" />
+          <Zap className="w-4 h-4 stroke-[1.75]" />
           <span>Bắt đầu buổi tập</span>
         </button>
 
         <button
           type="button"
           onClick={onConnectFriends}
-          className="w-full sm:flex-1 min-h-[44px] px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-100 text-sm font-medium transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 flex items-center justify-center gap-2"
+          className="apple-btn-secondary w-full sm:flex-1 min-h-[44px] px-5 py-2.5 text-sm font-medium flex items-center justify-center gap-2"
         >
-          <UserPlus className="w-4 h-4 text-zinc-400 stroke-[1.5]" />
+          <UserPlus className="w-4 h-4 text-zinc-400 stroke-[1.75]" />
           <span>Kết nối bạn bè</span>
         </button>
       </div>

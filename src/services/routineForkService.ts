@@ -193,9 +193,9 @@ export function findPrimaryMuscle(exerciseName: string): MuscleGroup {
   const clean = exerciseName.toLowerCase().trim();
   const found = ALL_RAW_EXERCISES.find((item) => item.name.toLowerCase() === clean);
   if (found?.primaryMuscles?.[0]) {
-    return mapStringToMuscleGroup(found.primaryMuscles[0]);
+    return mapStringToMuscleGroup(found.primaryMuscles[0], found.name);
   }
-  return 'chest';
+  return mapStringToMuscleGroup('', exerciseName);
 }
 
 export function findEquipment(exerciseName: string): string {

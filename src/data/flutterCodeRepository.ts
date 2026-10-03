@@ -41,6 +41,7 @@ dependencies:
   lucide_icons: ^0.257.0
   cached_network_image: ^3.3.1
   audioplayers: ^5.2.1
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
@@ -51,6 +52,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/data/
 `,
   },
   {
@@ -1755,6 +1757,41 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
           const SizedBox(height: 16),
 
+          // Muscle Heatmap Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: GymChuotTheme.surfaceCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Bản đồ nhiệt cơ bắp',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 12),
+                Center(
+                  child: MuscleHeatmap(
+                    width: 240,
+                    height: 220,
+                    setVolumeMap: session?.muscleVolumeMap ?? const {
+                      MuscleGroup.chest: 7,
+                      MuscleGroup.frontDelts: 4,
+                      MuscleGroup.sideDelts: 3,
+                      MuscleGroup.triceps: 5,
+                      MuscleGroup.lats: 2,
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // Telemetry Video Overlay Toggle
           SwitchListTile(
             value: _burnTelemetryOverlay,
@@ -2233,75 +2270,117 @@ class ProfileScreen extends StatelessWidget {
 `,
   },
   {
-    path: 'lib/widgets/muscle_heatmap_widget.dart',
-    name: 'muscle_heatmap_widget.dart',
+    path: 'lib/widgets/muscle_heatmap.dart',
+    name: 'muscle_heatmap.dart',
     category: 'widgets',
-    description: 'Visual 2D Anatomical Muscle Heatmap with Volume Gradient Highlights',
-    code: `import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+    description: 'Dynamic Vector SVG Muscle Heatmap (flutter_svg + exercises.json) with 4-tier color interpolation',
+    code: `import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_svg/flutter_svg.dart';
 import '../models/exercise_model.dart';
 
-class MuscleHeatmapWidget extends StatelessWidget {
-  final Map<MuscleGroup, int> highlightedMuscles;
+class MuscleHeatmap extends StatelessWidget {
+  final Map<MuscleGroup, int> setVolumeMap;
+  final double height;
+  final double width;
 
-  const MuscleHeatmapWidget({
+  const MuscleHeatmap({
     super.key,
-    required this.highlightedMuscles,
+    required this.setVolumeMap,
+    this.height = 300,
+    this.width = 220,
   });
 
-  Color _getColorForMuscle(MuscleGroup muscle) {
-    final sets = highlightedMuscles[muscle] ?? 0;
-    if (sets == 0) return const Color(0xFF2A2A32);
-    if (sets < 4) return GymChuotTheme.electricCyan.withOpacity(0.7);
-    if (sets < 8) return GymChuotTheme.chalkOrange;
-    return const Color(0xFFFF2200); // Hot red for 8+ sets
+  static String getColorHexForVolume(int sets) {
+    if (sets <= 0) return '#334155'; // 0 Sets: Slate-700 / Inactive
+    if (sets <= 3) return '#FBBF24'; // 1-3 Sets: Amber-400 / Light Activation
+    if (sets <= 6) return '#FB923C'; // 4-6 Sets: Orange-400 / Moderate Fatigue
+    return '#EF4444';                // 7+ Sets: Red-500 / High Fatigue
+  }
+
+  static Future<Map<MuscleGroup, int>> buildVolumeMapFromExercisesJson({
+    required Map<String, int> completedSetsByExerciseName,
+    String assetPath = 'assets/data/exercises.json',
+  }) async {
+    final rawJsonStr = await rootBundle.loadString(assetPath);
+    final decoded = jsonDecode(rawJsonStr) as Map<String, dynamic>;
+    final rawList = (decoded['exercises'] as List<dynamic>? ?? []);
+    final Map<String, Map<String, dynamic>> catalogByName = {};
+    for (final item in rawList) {
+      if (item is Map<String, dynamic>) {
+        final name = (item['name'] as String? ?? '').toLowerCase().trim();
+        if (name.isNotEmpty) catalogByName[name] = item;
+      }
+    }
+
+    final Map<MuscleGroup, double> accumulator = {};
+    completedSetsByExerciseName.forEach((exerciseName, completedSets) {
+      if (completedSets <= 0) return;
+      final match = catalogByName[exerciseName.toLowerCase().trim()];
+      if (match != null) {
+        final primaries = (match['primaryMuscles'] as List<dynamic>? ?? []);
+        final secondaries = (match['secondaryMuscles'] as List<dynamic>? ?? []);
+        for (final p in primaries) {
+          final group = MuscleGroup.fromJsonMuscleName(p.toString());
+          accumulator[group] = (accumulator[group] ?? 0) + completedSets;
+        }
+        for (final s in secondaries) {
+          final group = MuscleGroup.fromJsonMuscleName(s.toString());
+          accumulator[group] = (accumulator[group] ?? 0) + (completedSets * 0.5);
+        }
+      }
+    });
+
+    return accumulator.map((key, value) => MapEntry(key, value.round()));
+  }
+
+  String _injectDynamicFills(String rawSvg) {
+    String modifiedSvg = rawSvg;
+    for (final muscle in MuscleGroup.values) {
+      final volume = setVolumeMap[muscle] ?? 0;
+      final hexColor = getColorHexForVolume(volume);
+      final idPattern = 'id="\${muscle.name}"';
+      if (modifiedSvg.contains(idPattern)) {
+        modifiedSvg = modifiedSvg.replaceAll(
+          RegExp('\$idPattern\\\\s+pathFill="[^"]*"(\\\\s+fill="[^"]*")?'),
+          '\$idPattern fill="\$hexColor"',
+        );
+      }
+    }
+    return modifiedSvg;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildAnatomicalPill('NGỰC', _getColorForMuscle(MuscleGroup.chest)),
-              _buildAnatomicalPill('VAI', _getColorForMuscle(MuscleGroup.frontDelts)),
-              _buildAnatomicalPill('TAY SAU', _getColorForMuscle(MuscleGroup.triceps)),
-              _buildAnatomicalPill('LƯNG', _getColorForMuscle(MuscleGroup.lats)),
-              _buildAnatomicalPill('CHÂN', _getColorForMuscle(MuscleGroup.quads)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(LucideIcons.flame, color: GymChuotTheme.chalkOrange, size: 14),
-              SizedBox(width: 4),
-              Text(
-                'Màu sắc biểu thị độ kích thích cơ theo tổng khối lượng sets',
-                style: TextStyle(fontSize: 10, color: GymChuotTheme.mutedSilver),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+    const String rawAnatomicalSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 200" width="220" height="200">
+  <g transform="translate(5, 0)">
+    <path id="frontDelts" pathFill="default" fill="#334155" d="M29 38 Q23 40 21 49 Q27 50 31 41 Z M71 38 Q77 40 79 49 Q73 50 69 41 Z" />
+    <path id="sideDelts" pathFill="default" fill="#334155" d="M21 43 Q17 48 18 55 Q22 54 23 46 Z M79 43 Q83 48 82 55 Q78 54 77 46 Z" />
+    <path id="chest" pathFill="default" fill="#334155" d="M30 40 Q50 35 70 40 L68 58 Q50 62 32 58 Z" />
+    <path id="biceps" pathFill="default" fill="#334155" d="M18 42 Q25 42 26 58 Q19 58 17 42 Z M74 42 Q81 42 83 58 Q75 58 74 42 Z" />
+    <path id="abs" pathFill="default" fill="#334155" d="M34 62 Q50 64 66 62 L64 95 Q50 98 36 95 Z" />
+    <path id="quads" pathFill="default" fill="#334155" d="M32 100 Q50 98 68 100 L64 145 Q50 148 36 145 Z" />
+    <path id="calves" pathFill="default" fill="#334155" d="M35 149 Q33 164 37 182 L44 182 Q45 164 43 149 Z M65 149 Q67 164 63 182 L56 182 Q55 164 57 149 Z" />
+  </g>
+  <g transform="translate(115, 0)">
+    <path id="upperBack" pathFill="default" fill="#334155" d="M36 36 L64 36 L68 45 L50 55 L32 45 Z" />
+    <path id="rearDelts" pathFill="default" fill="#334155" d="M24 38 Q20 43 22 49 Q28 48 31 41 Z M76 38 Q80 43 78 49 Q72 48 69 41 Z" />
+    <path id="lats" pathFill="default" fill="#334155" d="M32 46 L48 56 L45 78 Q33 70 32 46 Z M68 46 L52 56 L55 78 Q67 70 68 46 Z" />
+    <path id="lowerBack" pathFill="default" fill="#334155" d="M39 68 L61 68 L59 83 L41 83 Z" />
+    <path id="triceps" pathFill="default" fill="#334155" d="M19 46 Q25 46 26 63 Q19 63 18 46 Z M74 46 Q81 46 82 63 Q75 63 74 46 Z" />
+    <path id="glutes" pathFill="default" fill="#334155" d="M34 84 Q50 81 66 84 L66 101 Q50 105 34 101 Z" />
+    <path id="hamstrings" pathFill="default" fill="#334155" d="M34 104 Q50 102 66 104 L63 145 Q50 148 37 145 Z" />
+  </g>
+</svg>
+''';
 
-  Widget _buildAnatomicalPill(String name, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color, width: 1.5),
-      ),
-      child: Text(
-        name,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
-      ),
+    return SvgPicture.string(
+      _injectDynamicFills(rawAnatomicalSvg),
+      height: height,
+      width: width,
+      fit: BoxFit.contain,
     );
   }
 }

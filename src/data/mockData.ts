@@ -606,6 +606,7 @@ export const CHALLENGES: Challenge[] = [
 ];
 
 export const DEFAULT_EXERCISES = [
+  { id: 'ex-pec-deck', name: 'Pec Deck Fly', vietnameseName: 'Ép ngực với máy', primaryMuscle: 'chest' as const, secondaryMuscles: ['front_delts'] as any },
   { id: 'ex-1', name: 'Barbell Bench Press', vietnameseName: 'Đẩy ngực ngang đòn tạ', primaryMuscle: 'chest' as const, secondaryMuscles: ['triceps', 'front_delts'] as any },
   { id: 'ex-2', name: 'Incline Dumbbell Press', vietnameseName: 'Đẩy ngực dốc tạ đơn', primaryMuscle: 'chest' as const, secondaryMuscles: ['front_delts', 'triceps'] as any },
   { id: 'ex-3', name: 'Barbell Back Squat', vietnameseName: 'Gánh tạ đòn', primaryMuscle: 'quads' as const, secondaryMuscles: ['glutes', 'hamstrings'] as any },

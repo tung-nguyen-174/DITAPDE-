@@ -36,15 +36,15 @@ export const ChallengesEmptyState: React.FC<ChallengesEmptyStateProps> = ({
   }[variant];
 
   return (
-    <section className="w-full backdrop-blur-md bg-zinc-900/50 rounded-2xl border border-zinc-800 p-6 sm:p-8 flex flex-col gap-6 shadow-sm">
+    <section className="apple-card w-full p-6 sm:p-8 flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0">
-            <Trophy className="w-5 h-5 text-emerald-400 stroke-[1.5]" />
+        <div className="flex items-center gap-3.5">
+          <div className="apple-icon-badge-accent">
+            <Trophy className="w-5 h-5 stroke-[1.75]" />
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-zinc-400">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold text-[#E4483C]">
               {copy.badge}
             </span>
             <h3 className="font-display text-lg font-bold tracking-tight text-zinc-100 leading-snug">
@@ -55,31 +55,31 @@ export const ChallengesEmptyState: React.FC<ChallengesEmptyStateProps> = ({
       </div>
 
       {/* Description */}
-      <p className="text-sm text-zinc-400 leading-relaxed">
+      <p className="text-sm text-zinc-300 font-normal leading-relaxed">
         {copy.description}
       </p>
 
       {/* Zero-State Progress Bar */}
-      <div className="bg-zinc-950/60 p-5 rounded-xl border border-zinc-800 flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4 text-xs">
+      <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/[0.06] flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4 text-xs font-medium">
           <span className="text-zinc-400">Sản lượng đã ghi nhận:</span>
           <span className="font-display tabular-nums font-semibold text-zinc-100">
             0.0 / 100.0 tấn (0%)
           </span>
         </div>
 
-        <div className="w-full h-2.5 bg-zinc-900 rounded-full overflow-hidden flex items-center p-0.5 border border-zinc-800">
-          <div className="h-1.5 w-2 rounded-full bg-emerald-400" />
+        <div className="w-full h-2.5 bg-black/50 rounded-full overflow-hidden flex items-center p-0.5 border border-white/10">
+          <div className="h-1.5 w-2 rounded-full bg-[#E4483C]" />
         </div>
 
         <div className="grid grid-cols-2 gap-4 pt-2 text-xs text-zinc-400">
           <div className="flex items-center gap-2">
-            <Flame className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
+            <Flame className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
             <span className="font-display tabular-nums">0 buổi tập trong tháng</span>
           </div>
           <div className="flex items-center gap-2 sm:justify-end">
-            <Shield className="w-4 h-4 text-zinc-400 stroke-[1.5] shrink-0" />
-            <span>Mở khóa huy hiệu Chuột Titan</span>
+            <Shield className="w-4 h-4 text-zinc-400 stroke-[1.75] shrink-0" />
+            <span className="text-[#E0B93D] font-medium">Mở khóa huy hiệu Chuột Titan</span>
           </div>
         </div>
       </div>
@@ -89,18 +89,18 @@ export const ChallengesEmptyState: React.FC<ChallengesEmptyStateProps> = ({
         <button
           type="button"
           onClick={onStartWorkout}
-          className="w-full sm:flex-1 min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-sm font-semibold shadow-sm transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 flex items-center justify-center gap-2"
+          className="apple-btn-primary w-full sm:flex-1 min-h-[44px] px-5 py-2.5 text-xs sm:text-sm font-semibold gap-2"
         >
-          <Dumbbell className="w-4 h-4 stroke-[1.5]" />
+          <Dumbbell className="w-4 h-4 stroke-[1.75]" />
           <span>Bắt đầu buổi tập</span>
         </button>
 
         <button
           type="button"
           onClick={onConnectFriends}
-          className="w-full sm:flex-1 min-h-[44px] px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-100 text-sm font-medium transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 flex items-center justify-center gap-2"
+          className="apple-btn-secondary w-full sm:flex-1 min-h-[44px] px-5 py-2.5 text-xs sm:text-sm font-medium gap-2"
         >
-          <UserPlus className="w-4 h-4 text-zinc-400 stroke-[1.5]" />
+          <UserPlus className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />
           <span>Kết nối bạn bè</span>
         </button>
       </div>
@@ -109,7 +109,7 @@ export const ChallengesEmptyState: React.FC<ChallengesEmptyStateProps> = ({
         <button
           type="button"
           onClick={onExploreChallenges}
-          className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-400 hover:text-zinc-100 text-xs font-medium transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-zinc-500"
+          className="apple-btn-secondary w-full min-h-[44px] px-4 py-2 text-xs font-medium"
         >
           Xem danh sách tất cả thử thách tháng này
         </button>

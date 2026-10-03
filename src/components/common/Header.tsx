@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Flame,
   Bell,
-  RefreshCw,
   Zap,
   UserPlus,
   MessageSquare,
@@ -25,7 +24,6 @@ interface HeaderProps {
   orientation?: DeviceOrientation;
   deviceType?: DeviceType;
   onToggleRotate?: () => void;
-  onReloadFeed?: () => void;
   onShowNotification?: (msg: string) => void;
   notifications?: AppNotification[];
   onMarkNotificationRead?: (id: string) => void;
@@ -39,7 +37,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   streakWeeks,
-  onReloadFeed,
   notifications = [],
   onMarkNotificationRead,
   onMarkAllNotificationsRead,
@@ -86,23 +83,23 @@ export const Header: React.FC<HeaderProps> = ({
       case 'nudge':
         return {
           label: 'Nhắc tập',
-          icon: <Zap className="w-4 h-4 text-emerald-400 stroke-[1.5]" />,
+          icon: <Zap className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />,
         };
       case 'friend_request':
         return {
           label: 'Lời mời kết bạn',
-          icon: <UserPlus className="w-4 h-4 text-emerald-400 stroke-[1.5]" />,
+          icon: <UserPlus className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />,
         };
       case 'direct_message':
         return {
           label: 'Tin nhắn trực tiếp',
-          icon: <MessageSquare className="w-4 h-4 text-emerald-400 stroke-[1.5]" />,
+          icon: <MessageSquare className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />,
         };
       case 'system':
       default:
         return {
           label: 'Thông báo hệ thống',
-          icon: <ShieldAlert className="w-4 h-4 text-zinc-400 stroke-[1.5]" />,
+          icon: <ShieldAlert className="w-4 h-4 text-zinc-400 stroke-[1.75]" />,
         };
     }
   };
@@ -119,48 +116,41 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <div className="flex flex-col backdrop-blur-md bg-zinc-950/80 border-b border-zinc-800 sticky top-0 z-30 w-full shrink-0 relative">
+    <div className="header-container flex flex-col backdrop-blur-xl bg-zinc-950/85 border-b border-white/10 sticky top-0 z-30 w-full shrink-0 relative">
       <header className="max-w-3xl mx-auto w-full px-6 py-4 flex items-center justify-between gap-6">
         {/* Zone 1: Brand */}
-        <div className="flex items-center gap-3 min-w-0">
-          <GymChuotLogo size="sm" showText={true} />
+        <div className="group flex items-center gap-3 min-w-0 cursor-pointer transition-transform duration-200 ease-in-out hover:scale-105 active:scale-95 origin-left">
+          <div className="transition-transform duration-200 ease-in-out group-hover:scale-105">
+            <GymChuotLogo size="sm" />
+          </div>
+          <span className="font-display text-base font-bold tracking-tight text-zinc-100 group-hover:text-white transition-colors duration-200 ease-in-out select-none truncate">
+            DITAPDE!
+          </span>
         </div>
 
         {/* Zone 2: Unboxed Streak Metadata */}
         <div className="hidden md:flex items-center gap-2 text-xs font-medium text-zinc-400 font-display tabular-nums shrink-0">
-          <Flame className="w-4 h-4 text-emerald-400 stroke-[1.5]" />
+          <Flame className="w-4 h-4 text-[#E0B93D] stroke-[1.75] fill-current" />
           <span className="text-zinc-100 font-semibold">Chuỗi {streakWeeks} tuần</span>
         </div>
 
         {/* Zone 3: Primary Contextual Actions */}
         <div className="flex items-center gap-3 shrink-0">
-          {onReloadFeed && (
-            <button
-              onClick={onReloadFeed}
-              className="min-w-[44px] min-h-[44px] px-4 py-2 rounded-xl bg-zinc-900/60 hover:bg-zinc-800/60 text-zinc-100 border border-zinc-800 transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 flex items-center justify-center gap-2 text-xs font-medium shadow-sm"
-              title="Làm mới bảng tin"
-              aria-label="Làm mới bảng tin"
-            >
-              <RefreshCw className="w-4 h-4 text-zinc-400 stroke-[1.5]" />
-              <span className="hidden sm:inline">Tải lại</span>
-            </button>
-          )}
-
           <button
             type="button"
-            className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 relative flex items-center justify-center border shadow-sm ${
+            className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-2xl transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 relative flex items-center justify-center border shadow-sm select-none ${
               isNotifOpen
-                ? 'bg-emerald-500 text-zinc-950 border-emerald-500'
-                : 'bg-zinc-900/60 hover:bg-zinc-800/60 text-zinc-100 border-zinc-800'
+                ? 'bg-gradient-to-b from-[#EA5A4F] to-[#E4483C] text-white border-white/20 shadow-md shadow-[#E4483C]/25'
+                : 'backdrop-blur-md bg-white/[0.08] hover:bg-white/[0.14] text-zinc-100 border-white/10'
             }`}
             title="Thông báo"
             aria-label="Thông báo"
             aria-expanded={isNotifOpen}
             onClick={handleToggleNotifPanel}
           >
-            <Bell className="w-5 h-5 stroke-[1.5]" />
+            <Bell className="w-5 h-5 stroke-[1.75]" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1.5 rounded-full bg-emerald-500 text-zinc-950 border-2 border-zinc-950 font-display tabular-nums text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-b from-[#EA5A4F] to-[#E4483C] text-white border border-white/20 font-display tabular-nums text-[10px] font-bold flex items-center justify-center shadow-xs">
                 {unreadCount}
               </span>
             )}
@@ -172,25 +162,29 @@ export const Header: React.FC<HeaderProps> = ({
       {isNotifOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-zinc-950/60 backdrop-blur-xs transition-opacity duration-200"
+            className="fixed inset-0 z-40 bg-black/75 backdrop-blur-md transition-opacity duration-200"
             onClick={handleToggleNotifPanel}
           />
 
-          <div className="max-w-3xl mx-auto w-full px-6 relative z-50">
+          <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 relative z-50">
             <section
-              className="my-3 backdrop-blur-md bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-6 max-h-[78dvh] overflow-hidden shadow-2xl"
+              className="my-3 rounded-3xl bg-zinc-950/95 backdrop-blur-2xl border border-white/10 p-6 flex flex-col gap-6 max-h-[78dvh] overflow-hidden shadow-2xl shadow-black/40"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top Row: Title + Mark All Seen + Close */}
-              <div className="flex items-center justify-between gap-4 pb-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Bell className="w-5 h-5 text-emerald-400 stroke-[1.5] shrink-0" />
-                  <h3 className="font-display text-lg font-bold tracking-tight text-zinc-100 truncate">
-                    Thông báo của bạn
-                  </h3>
-                  <span className="font-display tabular-nums text-xs text-zinc-400 shrink-0">
-                    · {unreadCount > 0 ? `${unreadCount} chưa xem` : 'Đã xem hết'}
-                  </span>
+              <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="apple-icon-badge-accent">
+                    <Bell className="w-5 h-5 stroke-[1.75]" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <h3 className="font-display text-lg font-bold tracking-tight text-zinc-100 truncate">
+                      Thông báo của bạn
+                    </h3>
+                    <span className="font-display tabular-nums text-xs text-zinc-400">
+                      {unreadCount > 0 ? `${unreadCount} chưa xem` : 'Đã xem hết tất cả'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -198,9 +192,9 @@ export const Header: React.FC<HeaderProps> = ({
                     <button
                       type="button"
                       onClick={() => onMarkAllNotificationsRead()}
-                      className="min-h-[44px] px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800/60 border border-zinc-800 text-xs font-medium text-zinc-100 flex items-center gap-2 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                      className="apple-btn-secondary min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-zinc-200 flex items-center gap-1.5"
                     >
-                      <CheckCheck className="w-4 h-4 text-emerald-400 stroke-[1.5]" />
+                      <CheckCheck className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />
                       <span>Đã xem tất cả</span>
                     </button>
                   )}
@@ -208,15 +202,15 @@ export const Header: React.FC<HeaderProps> = ({
                     type="button"
                     onClick={handleToggleNotifPanel}
                     aria-label="Đóng thông báo"
-                    className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-zinc-900 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                    className="w-10 h-10 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400"
                   >
-                    <X className="w-5 h-5 stroke-[1.5]" />
+                    <X className="w-5 h-5 stroke-[1.75]" />
                   </button>
                 </div>
               </div>
 
-              {/* Filter Tabs */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap">
+              {/* Filter Tabs (Apple Segmented Control) */}
+              <div className="apple-segmented-control overflow-x-auto no-scrollbar whitespace-nowrap">
                 {(
                   [
                     { id: 'all', label: `Tất cả (${notifications.length})` },
@@ -242,10 +236,10 @@ export const Header: React.FC<HeaderProps> = ({
                     key={tab.id}
                     type="button"
                     onClick={() => handleSelectFilter(tab.id)}
-                    className={`min-h-[40px] px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 ease-in-out shrink-0 focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+                    className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out shrink-0 focus:outline-none active:scale-[0.98] ${
                       activeFilter === tab.id
-                        ? 'bg-emerald-500 text-zinc-950 font-semibold shadow-sm'
-                        : 'bg-zinc-950/60 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 border border-zinc-800'
+                        ? 'bg-white/15 text-white font-semibold shadow-xs border border-white/10'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
                     }`}
                   >
                     {tab.label}
@@ -256,7 +250,7 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Notification Items List */}
               <div className="flex flex-col gap-4 overflow-y-auto max-h-[50dvh] pr-1">
                 {filteredNotifications.length === 0 ? (
-                  <div className="p-8 rounded-2xl bg-zinc-950/50 border border-zinc-800 text-center flex flex-col items-center gap-2">
+                  <div className="p-8 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-center flex flex-col items-center gap-2">
                     <span className="text-sm font-semibold text-zinc-100">
                       Không có thông báo nào trong mục này
                     </span>
@@ -279,8 +273,8 @@ export const Header: React.FC<HeaderProps> = ({
                         }}
                         className={`p-5 rounded-2xl border transition-all duration-200 ease-in-out flex flex-col gap-4 cursor-pointer ${
                           notif.read
-                            ? 'bg-zinc-950/50 border-zinc-800 hover:bg-zinc-800/40'
-                            : 'bg-zinc-900/80 border-emerald-500/40 shadow-sm'
+                            ? 'bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06]'
+                            : 'bg-white/[0.06] border-[#E4483C]/40 shadow-sm'
                         }`}
                       >
                         {/* Item Header */}
@@ -290,17 +284,17 @@ export const Header: React.FC<HeaderProps> = ({
                               <img
                                 src={notif.senderAvatar}
                                 alt={notif.senderName || 'Avatar'}
-                                className="w-11 h-11 rounded-xl object-cover border border-zinc-800 shrink-0"
+                                className="w-11 h-11 rounded-2xl object-cover border border-white/10 shrink-0"
                               />
                             ) : (
-                              <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
+                              <div className="apple-icon-badge">
                                 {meta.icon}
                               </div>
                             )}
 
                             <div className="flex flex-col gap-1 min-w-0">
                               <div className="flex items-center gap-2 text-xs text-zinc-400">
-                                <span className="text-emerald-400 font-medium">
+                                <span className="text-[#E4483C] font-medium">
                                   {meta.label}
                                 </span>
                                 <span aria-hidden="true">·</span>
@@ -314,21 +308,21 @@ export const Header: React.FC<HeaderProps> = ({
 
                           {!notif.read && (
                             <span
-                              className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-2"
+                              className="w-2 h-2 rounded-full bg-[#E4483C] shrink-0 mt-2 ring-2 ring-[#E4483C]/20"
                               title="Chưa xem"
                             />
                           )}
                         </div>
 
                         {/* Body */}
-                        <p className="text-sm text-zinc-400 leading-relaxed">
+                        <p className="text-sm text-zinc-300 font-normal leading-relaxed">
                           {notif.body}
                         </p>
 
                         {/* Reply History if replied */}
                         {notif.replyText && (
-                          <div className="p-3.5 rounded-xl bg-zinc-950/70 border border-zinc-800 text-xs text-zinc-400 flex items-center gap-2">
-                            <Check className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
+                          <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 text-xs text-zinc-400 flex items-center gap-2">
+                            <Check className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
                             <span>
                               Bạn đã trả lời:{' '}
                               <strong className="text-zinc-100">{notif.replyText}</strong>
@@ -344,7 +338,7 @@ export const Header: React.FC<HeaderProps> = ({
                           >
                             {notif.actionTaken === 'accepted' ? (
                               <div className="text-xs font-medium text-emerald-400 flex items-center gap-2">
-                                <Check className="w-4 h-4 stroke-[1.5] shrink-0" />
+                                <Check className="w-4 h-4 stroke-[1.75] shrink-0" />
                                 <span>Đã chấp nhận lời mời kết bạn</span>
                               </div>
                             ) : notif.actionTaken === 'declined' ? (
@@ -358,9 +352,9 @@ export const Header: React.FC<HeaderProps> = ({
                                   onClick={() =>
                                     onAcceptFriendRequest && onAcceptFriendRequest(notif)
                                   }
-                                  className="flex-1 basis-[120px] min-h-[44px] px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-200 ease-in-out active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                                  className="apple-btn-primary flex-1 basis-[120px] min-h-[44px] px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2"
                                 >
-                                  <Check className="w-4 h-4 stroke-[1.5] shrink-0" />
+                                  <Check className="w-4 h-4 stroke-[1.75] shrink-0" />
                                   <span>Chấp nhận</span>
                                 </button>
                                 <button
@@ -368,9 +362,9 @@ export const Header: React.FC<HeaderProps> = ({
                                   onClick={() =>
                                     onDeclineFriendRequest && onDeclineFriendRequest(notif)
                                   }
-                                  className="flex-1 basis-[120px] min-h-[44px] px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-400 hover:text-zinc-100 text-xs font-medium flex items-center justify-center gap-2 transition-all duration-200 ease-in-out active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                                  className="apple-btn-secondary flex-1 basis-[120px] min-h-[44px] px-4 py-2 text-xs font-medium flex items-center justify-center gap-2"
                                 >
-                                  <X className="w-4 h-4 stroke-[1.5] shrink-0" />
+                                  <X className="w-4 h-4 stroke-[1.75] shrink-0" />
                                   <span>Từ chối</span>
                                 </button>
                               </>
@@ -390,18 +384,18 @@ export const Header: React.FC<HeaderProps> = ({
                                 setIsNotifOpen(false);
                                 if (onStartWorkout) onStartWorkout();
                               }}
-                              className="flex-1 basis-[130px] min-h-[44px] px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold flex items-center justify-center gap-2 transition-all duration-200 ease-in-out active:scale-95 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                              className="apple-btn-primary flex-1 basis-[130px] min-h-[44px] px-4 py-2 text-xs font-semibold flex items-center justify-center gap-2 whitespace-nowrap"
                             >
-                              <Dumbbell className="w-4 h-4 stroke-[1.5] shrink-0" />
+                              <Dumbbell className="w-4 h-4 stroke-[1.75] shrink-0" />
                               <span>Vào tập ngay</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => onNudgeBack && onNudgeBack(notif)}
                               disabled={notif.actionTaken === 'nudge_back'}
-                              className="flex-1 basis-[130px] min-h-[44px] px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-100 text-xs font-medium flex items-center justify-center gap-2 transition-all duration-200 ease-in-out active:scale-95 disabled:opacity-50 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                              className="apple-btn-secondary flex-1 basis-[130px] min-h-[44px] px-4 py-2 text-xs font-medium flex items-center justify-center gap-2 disabled:opacity-40 whitespace-nowrap"
                             >
-                              <Zap className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
+                              <Zap className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
                               <span>
                                 {notif.actionTaken === 'nudge_back'
                                   ? 'Đã hú lại'
@@ -423,9 +417,9 @@ export const Header: React.FC<HeaderProps> = ({
                                   if (onMarkNotificationRead) onMarkNotificationRead(notif.id);
                                   setReplyingId(notif.id);
                                 }}
-                                className="self-start min-h-[44px] px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-100 text-xs font-medium flex items-center gap-2 transition-all duration-200 ease-in-out active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                                className="apple-btn-secondary self-start min-h-[44px] px-4 py-2 text-xs font-medium flex items-center gap-2"
                               >
-                                <MessageSquare className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
+                                <MessageSquare className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
                                 <span>
                                   {notif.replyText ? 'Gửi thêm tin nhắn' : 'Trả lời tin nhắn'}
                                 </span>
@@ -440,13 +434,13 @@ export const Header: React.FC<HeaderProps> = ({
                                   value={replyDraft}
                                   onChange={(e) => setReplyDraft(e.target.value)}
                                   placeholder={`Nhắn cho ${notif.senderName || 'bạn tập'}...`}
-                                  className="flex-1 min-w-0 w-full min-h-[44px] px-4 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                                  className="apple-input flex-1 min-w-0 w-full min-h-[44px] px-4 py-2 text-xs text-zinc-100 placeholder-zinc-500"
                                 />
                                 <button
                                   type="submit"
-                                  className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 ease-in-out shrink-0 ml-auto focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                                  className="apple-btn-primary min-h-[44px] px-4 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 shrink-0 ml-auto"
                                 >
-                                  <Send className="w-4 h-4 stroke-[1.5] shrink-0" />
+                                  <Send className="w-4 h-4 stroke-[1.75] shrink-0" />
                                   <span>Gửi</span>
                                 </button>
                               </form>

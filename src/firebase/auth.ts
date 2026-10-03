@@ -13,6 +13,7 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './config';
 import { handleFirestoreError, OperationType } from './errorHandler';
+import { stripUndefinedDeep } from './firestoreService';
 import { GymBuddy } from '../types/gym';
 
 export interface UserProfileData {
@@ -62,19 +63,19 @@ export async function syncUserProfile(user: User, fallbackName?: string): Promis
     if (userSnap.exists()) {
       const existingData = userSnap.data() as UserProfileData;
       if (!user.isAnonymous && existingData.isAnonymous) {
-        const merged: Partial<UserProfileData> = {
+        const merged: Partial<UserProfileData> = stripUndefinedDeep({
           name,
           email: (user.email || existingData.email || '').slice(0, 150),
-          avatar: (user.photoURL || existingData.avatar).slice(0, 500),
+          avatar: (user.photoURL || existingData.avatar || newProfile.avatar).slice(0, 500),
           isAnonymous: false,
-        };
+        });
         await updateDoc(userRef, merged);
         return { ...existingData, ...merged };
       }
       return existingData;
     }
 
-    await setDoc(userRef, newProfile);
+    await setDoc(userRef, stripUndefinedDeep(newProfile));
     return newProfile;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
@@ -188,8 +189,9 @@ export async function signUpWithEmail(email: string, pass: string, displayName: 
  */
 export async function updateUserProfileInDb(userId: string, partial: Partial<UserProfileData>): Promise<void> {
   const userRef = doc(db, 'users', userId);
+  const cleanPartial = stripUndefinedDeep(partial);
   try {
-    await updateDoc(userRef, partial);
+    await setDoc(userRef, cleanPartial, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
   }

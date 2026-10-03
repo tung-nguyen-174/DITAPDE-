@@ -49,6 +49,7 @@ class ExerciseRepository {
             break;
           case 'Chân (Legs)':
             matchesMuscle = ex.primaryMuscles.contains(MuscleGroup.quads) ||
+                ex.primaryMuscles.contains(MuscleGroup.hamstrings) ||
                 ex.primaryMuscles.contains(MuscleGroup.glutes) ||
                 ex.primaryMuscles.contains(MuscleGroup.calves);
             break;

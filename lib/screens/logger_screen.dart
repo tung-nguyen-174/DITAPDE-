@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/exercise_model.dart';
 import '../theme/app_theme.dart';
+import '../widgets/muscle_heatmap.dart';
 import 'exercise_picker_screen.dart';
+import 'summary_screen.dart';
 
 class LoggedSet {
   final int setNumber;
@@ -84,6 +86,21 @@ class _LoggerScreenState extends State<LoggerScreen> {
     });
   }
 
+  Map<MuscleGroup, int> _buildSetVolumeMap() {
+    final Map<MuscleGroup, double> accumulator = {};
+    for (final exItem in _exercises) {
+      final completedCount = exItem.sets.where((s) => s.isCompleted).length;
+      final workingSets = completedCount > 0 ? completedCount : exItem.sets.length;
+      for (final p in exItem.definition.primaryMuscles) {
+        accumulator[p] = (accumulator[p] ?? 0) + workingSets;
+      }
+      for (final sec in exItem.definition.secondaryMuscles) {
+        accumulator[sec] = (accumulator[sec] ?? 0) + (workingSets * 0.5);
+      }
+    }
+    return accumulator.map((k, v) => MapEntry(k, v.round()));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,6 +125,37 @@ class _LoggerScreenState extends State<LoggerScreen> {
               ),
             ),
           ),
+          if (_exercises.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ElevatedButton(
+                onPressed: () {
+                  final volumeMap = _buildSetVolumeMap();
+                  final completedByName = <String, int>{
+                    for (final item in _exercises)
+                      item.definition.nameEn: item.sets.where((s) => s.isCompleted).isNotEmpty
+                          ? item.sets.where((s) => s.isCompleted).length
+                          : item.sets.length,
+                  };
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SummaryScreen(
+                        setVolumeMap: volumeMap,
+                        completedSetsByExerciseName: completedByName,
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: GymChuotTheme.chalkOrange,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                child: const Text(
+                  'Hoàn Thành',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
         ],
       ),
       body: _exercises.isEmpty

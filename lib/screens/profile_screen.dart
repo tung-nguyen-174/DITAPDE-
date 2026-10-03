@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/gym_location_model.dart';
 import '../providers/check_in_provider.dart';
+import '../widgets/muscle_heatmap.dart';
 import 'gym_discover_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -200,6 +201,52 @@ class ProfileScreen extends StatelessWidget {
                       style: TextStyle(color: Colors.white60, fontSize: 13),
                     ),
                   ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 30-Day Muscle Heatmap Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _cardDark,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Bản đồ nhiệt cơ bắp (30 ngày)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Center(
+                  child: MuscleHeatmap(
+                    width: 240,
+                    height: 220,
+                    setVolumeMap: {
+                      MuscleGroup.chest: 14,
+                      MuscleGroup.lats: 12,
+                      MuscleGroup.upperBack: 8,
+                      MuscleGroup.lowerBack: 6,
+                      MuscleGroup.quads: 11,
+                      MuscleGroup.hamstrings: 9,
+                      MuscleGroup.glutes: 8,
+                      MuscleGroup.calves: 4,
+                      MuscleGroup.frontDelts: 8,
+                      MuscleGroup.sideDelts: 7,
+                      MuscleGroup.triceps: 10,
+                      MuscleGroup.biceps: 6,
+                      MuscleGroup.abs: 6,
+                    },
+                  ),
+                ),
               ],
             ),
           ),

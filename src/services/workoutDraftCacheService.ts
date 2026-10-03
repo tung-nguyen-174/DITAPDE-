@@ -1,9 +1,32 @@
 // src/services/workoutDraftCacheService.ts
 import { ExerciseSet, MuscleGroup, WorkoutExercise, WorkoutSession } from '../types/gym';
+import {
+  calculateCompoundLiftsE1RM,
+  CompoundLiftKey,
+} from '../utils/fitnessCalculations';
 
 const ISAR_DRAFT_SESSION_KEY = 'ditapde_isar_draft_session_v1';
 const ISAR_EXERCISE_HISTORY_KEY = 'ditapde_isar_exercise_history_v1';
+const ISAR_USER_LOGGED_HISTORY_KEY = 'ditapde_isar_user_logged_history_v1';
+const ISAR_MANUAL_1RM_KEY = 'ditapde_isar_manual_1rm_v1';
+const ISAR_SYNCED_COMPOUND_PRS_KEY = 'ditapde_isar_synced_compound_prs_v1';
 const ISAR_INITIAL_CRASH_DEMO_SEEDED_KEY = 'ditapde_isar_crash_demo_seeded_v1';
+
+export interface Manual1RMRecord {
+  weightKg: number;
+  updatedAt: string;
+}
+
+export interface SyncedCompoundPRRecord {
+  key: CompoundLiftKey;
+  e1rmKg: number;
+  heaviestWeightKg: number;
+  reps: number;
+  rpe?: number;
+  setNumber: number;
+  matchedExerciseName: string;
+  updatedAt: string;
+}
 
 export interface PreviousSetRecord {
   setNumber: number;
@@ -63,6 +86,8 @@ const DEFAULT_PREVIOUS_EXERCISE_HISTORY: ExerciseHistoryMap = {
 };
 
 export class WorkoutDraftCacheService {
+  private static pendingSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
   /**
    * Read the exercise history map from Local DB (Isar Cache)
    */
@@ -137,11 +162,12 @@ export class WorkoutDraftCacheService {
   static updateHistoryFromCompletedSession(session: WorkoutSession): void {
     try {
       const currentHistory = WorkoutDraftCacheService.getExerciseHistory();
+      const userLoggedHistory = WorkoutDraftCacheService.getUserLoggedHistory();
       session.exercises.forEach((ex) => {
         const key = ex.name.toLowerCase().trim();
         const completedOrValidSets = ex.sets.filter((s) => s.weight > 0 && s.reps > 0);
         if (completedOrValidSets.length > 0) {
-          currentHistory[key] = completedOrValidSets.map((s, idx) => ({
+          const mappedSets: PreviousSetRecord[] = completedOrValidSets.map((s, idx) => ({
             setNumber: idx + 1,
             setType: s.setType,
             weight: s.weight,
@@ -149,12 +175,120 @@ export class WorkoutDraftCacheService {
             rpe: s.rpe,
             previousLabel: `${s.weight}kg × ${s.reps}`,
           }));
+          currentHistory[key] = mappedSets;
+          userLoggedHistory[key] = mappedSets;
         }
       });
       localStorage.setItem(ISAR_EXERCISE_HISTORY_KEY, JSON.stringify(currentHistory));
+      localStorage.setItem(ISAR_USER_LOGGED_HISTORY_KEY, JSON.stringify(userLoggedHistory));
+      WorkoutDraftCacheService.syncCompoundPRsFromSession(session);
     } catch (e) {
       console.warn('Error updating exercise history cache:', e);
     }
+  }
+
+  /**
+   * Read synced Compound Lift E1RMs calculated from Logger sessions
+   */
+  static getSyncedCompoundPRs(): Partial<Record<CompoundLiftKey, SyncedCompoundPRRecord>> {
+    try {
+      const raw = localStorage.getItem(ISAR_SYNCED_COMPOUND_PRS_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) as Partial<Record<CompoundLiftKey, SyncedCompoundPRRecord>>;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Automatically calculate and sync compound lift E1RMs (Bench, Squat, Deadlift, OHP)
+   * from a Logger session's heaviest sets into the Kỷ lục cá nhân store.
+   */
+  static syncCompoundPRsFromSession(
+    session: Pick<WorkoutSession, 'exercises' | 'userBodyweightKg' | 'preferredUnit'>
+  ): Partial<Record<CompoundLiftKey, SyncedCompoundPRRecord>> {
+    const current = WorkoutDraftCacheService.getSyncedCompoundPRs();
+    const results = calculateCompoundLiftsE1RM(session.exercises || [], {
+      bodyweightKg: session.userBodyweightKg,
+      preferredUnit: session.preferredUnit,
+    });
+
+    const next: Partial<Record<CompoundLiftKey, SyncedCompoundPRRecord>> = {
+      ...current,
+    };
+    const todayStr = new Date().toLocaleDateString('vi-VN');
+
+    for (const item of results) {
+      if (item.hasSessionSet && item.e1rmKg > 0) {
+        const existing = next[item.key];
+        // Sync if there is no previous record or if the current session's heaviest set updates/matches or is a valid session lift
+        if (!existing || item.e1rmKg >= existing.e1rmKg || item.heaviestWeightKg > 0) {
+          next[item.key] = {
+            key: item.key,
+            e1rmKg: item.e1rmKg,
+            heaviestWeightKg: item.heaviestWeightKg,
+            reps: item.reps,
+            rpe: item.rpe,
+            setNumber: item.setNumber,
+            matchedExerciseName: item.matchedExerciseName,
+            updatedAt: todayStr,
+          };
+        }
+      }
+    }
+
+    try {
+      localStorage.setItem(ISAR_SYNCED_COMPOUND_PRS_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('Error syncing compound PRs:', e);
+    }
+    return next;
+  }
+
+  /**
+   * Read sets that were explicitly logged by the user in Logger sessions
+   */
+  static getUserLoggedHistory(): ExerciseHistoryMap {
+    try {
+      const raw = localStorage.getItem(ISAR_USER_LOGGED_HISTORY_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) as ExerciseHistoryMap;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Read manually entered 1RM records for core lifts
+   */
+  static getManual1RMMap(): Record<string, Manual1RMRecord> {
+    try {
+      const raw = localStorage.getItem(ISAR_MANUAL_1RM_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) as Record<string, Manual1RMRecord>;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Persist a manually entered 1RM for a core lift
+   */
+  static saveManual1RM(liftKey: string, weightKg: number): Record<string, Manual1RMRecord> {
+    const current = WorkoutDraftCacheService.getManual1RMMap();
+    const next: Record<string, Manual1RMRecord> = {
+      ...current,
+      [liftKey]: {
+        weightKg: Math.round(weightKg * 10) / 10,
+        updatedAt: new Date().toLocaleDateString('vi-VN'),
+      },
+    };
+    try {
+      localStorage.setItem(ISAR_MANUAL_1RM_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('Error saving manual 1RM:', e);
+    }
+    return next;
   }
 
   /**
@@ -182,11 +316,28 @@ export class WorkoutDraftCacheService {
    */
   static saveDraftSession(session: WorkoutSession): void {
     try {
+      if (WorkoutDraftCacheService.pendingSaveTimer) {
+        clearTimeout(WorkoutDraftCacheService.pendingSaveTimer);
+        WorkoutDraftCacheService.pendingSaveTimer = null;
+      }
       localStorage.setItem(ISAR_DRAFT_SESSION_KEY, JSON.stringify(session));
       localStorage.setItem(ISAR_INITIAL_CRASH_DEMO_SEEDED_KEY, 'true');
     } catch (e) {
       console.warn('Failed to save workout draft to local cache:', e);
     }
+  }
+
+  /**
+   * Non-blocking debounced draft persistence so rapid set/timer updates never block the UI thread.
+   */
+  static saveDraftSessionAsync(session: WorkoutSession, delayMs = 350): void {
+    if (WorkoutDraftCacheService.pendingSaveTimer) {
+      clearTimeout(WorkoutDraftCacheService.pendingSaveTimer);
+    }
+    WorkoutDraftCacheService.pendingSaveTimer = setTimeout(() => {
+      WorkoutDraftCacheService.pendingSaveTimer = null;
+      WorkoutDraftCacheService.saveDraftSession(session);
+    }, delayMs);
   }
 
   /**
@@ -224,6 +375,10 @@ export class WorkoutDraftCacheService {
    */
   static clearDraftSession(): void {
     try {
+      if (WorkoutDraftCacheService.pendingSaveTimer) {
+        clearTimeout(WorkoutDraftCacheService.pendingSaveTimer);
+        WorkoutDraftCacheService.pendingSaveTimer = null;
+      }
       localStorage.removeItem(ISAR_DRAFT_SESSION_KEY);
       localStorage.setItem(ISAR_INITIAL_CRASH_DEMO_SEEDED_KEY, 'true');
     } catch (e) {

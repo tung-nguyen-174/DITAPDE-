@@ -656,28 +656,30 @@ export const FlexStoryModal: React.FC<FlexStoryModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#17161A]/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#1F1E24] border border-[#35343C] rounded-[20px] p-6 flex flex-col gap-5 max-h-[92dvh] overflow-y-auto shadow-2xl"
+        className="w-full max-w-md bg-zinc-950/95 border border-white/10 rounded-3xl p-6 flex flex-col gap-5 max-h-[92dvh] overflow-y-auto shadow-2xl backdrop-blur-2xl text-zinc-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Sparkles className="w-5 h-5 text-[#E4483C] stroke-[1.5]" />
-            <h3 className="font-display text-[17px] font-semibold tracking-tight text-[#F2F1ED]">
+        <div className="flex items-center justify-between pb-2 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="apple-icon-badge-accent">
+              <Sparkles className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <h3 className="font-display text-lg font-bold tracking-tight text-zinc-100">
               Xuất Story Flex
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-10 h-10 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#9C9AA3] hover:text-[#F2F1ED] flex items-center justify-center transition-all duration-200 ease-in-out"
+            className="w-10 h-10 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400"
             aria-label="Đóng"
           >
-            <X className="w-5 h-5 stroke-[1.5]" />
+            <X className="w-5 h-5 stroke-[1.75]" />
           </button>
         </div>
 
@@ -700,17 +702,17 @@ export const FlexStoryModal: React.FC<FlexStoryModalProps> = ({
         </div>
 
         {/* Background Media Picker */}
-        <div className="flex items-center justify-between gap-2 p-3 rounded-[14px] bg-[#17161A] border border-[#35343C]">
-          <div className="flex items-center gap-2 min-w-0">
-            <Camera className="w-4 h-4 text-[#E4483C] stroke-[1.5] shrink-0" />
-            <span className="text-[12.5px] text-[#9C9AA3] truncate">
+        <div className="flex items-center justify-between gap-2 p-3.5 rounded-2xl bg-zinc-900/60 border border-white/10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Camera className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
+            <span className="text-xs text-zinc-400 truncate">
               {localMedia
-                ? `Ảnh/Video nền: ${localMedia.fileName || 'Đã đính kèm'}`
+                ? `Nền: ${localMedia.fileName || 'Đã đính kèm'}`
                 : 'Đính kèm ảnh/video làm nền Story'}
             </span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <label className="px-3 py-1.5 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] text-[11px] font-semibold cursor-pointer transition-all duration-200 ease-in-out border border-[#35343C]">
+            <label className="apple-btn-secondary px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer">
               {localMedia ? 'Đổi nền' : 'Chọn ảnh/video'}
               <input
                 type="file"
@@ -723,10 +725,10 @@ export const FlexStoryModal: React.FC<FlexStoryModalProps> = ({
               <button
                 type="button"
                 onClick={handleClearMedia}
-                className="p-1.5 rounded-[14px] bg-[#28272E] hover:bg-[#E4483C]/20 text-[#E4483C] transition-all duration-200 ease-in-out"
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-[#E4483C]/20 text-zinc-400 hover:text-[#E4483C] border border-white/10 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96]"
                 title="Xóa ảnh nền"
               >
-                <Trash2 className="w-4 h-4 stroke-[1.5]" />
+                <Trash2 className="w-4 h-4 stroke-[1.75]" />
               </button>
             )}
           </div>
@@ -745,10 +747,10 @@ export const FlexStoryModal: React.FC<FlexStoryModalProps> = ({
                   key={tag}
                   type="button"
                   onClick={() => setSelectedTagline(tag)}
-                  className={`px-3 py-1.5 rounded-[14px] text-[12.5px] whitespace-nowrap transition-all duration-200 ease-in-out shrink-0 border ${
+                  className={`px-3.5 py-1.5 rounded-2xl text-xs whitespace-nowrap transition-all duration-200 ease-out shrink-0 border active:scale-[0.98] ${
                     isSelected
-                      ? 'bg-[#E4483C] text-white font-semibold border-[#E4483C]'
-                      : 'bg-[#28272E] text-[#9C9AA3] hover:text-[#F2F1ED] border-[#35343C]'
+                      ? 'apple-btn-primary shadow-xs'
+                      : 'apple-btn-secondary'
                   }`}
                 >
                   {tag}
@@ -771,20 +773,20 @@ export const FlexStoryModal: React.FC<FlexStoryModalProps> = ({
               }
             }}
             placeholder="Hoặc tự điền quote riêng của bạn..."
-            className="w-full bg-[#17161A] text-[#F2F1ED] text-[13px] placeholder-[#656470] rounded-[14px] pl-3.5 pr-10 py-2.5 border border-[#35343C] focus:outline-hidden focus:border-[#E4483C]"
+            className="apple-input w-full text-xs pl-3.5 pr-11 py-2.5"
           />
           <button
             type="button"
             onClick={handleApplyCustomTagline}
-            className="absolute right-2.5 text-[#E4483C] hover:scale-110 transition-all duration-200 ease-in-out p-1"
+            className="absolute right-2 w-7 h-7 rounded-lg bg-[#E4483C]/20 border border-[#E4483C]/30 text-[#E4483C] hover:bg-[#E4483C] hover:text-white flex items-center justify-center transition-all duration-200 active:scale-[0.96]"
             title="Áp dụng quote"
           >
-            <CheckCircle2 className="w-5 h-5 stroke-[1.5]" />
+            <CheckCircle2 className="w-3.5 h-3.5 stroke-[1.75]" />
           </button>
         </div>
 
         {exportSuccessMessage && (
-          <div className="px-3 py-2 rounded-[14px] bg-[#4CAF6D]/15 border border-[#4CAF6D]/40 text-[#4CAF6D] text-[12.5px] font-medium text-center">
+          <div className="px-3.5 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium text-center">
             {exportSuccessMessage}
           </div>
         )}
@@ -794,7 +796,7 @@ export const FlexStoryModal: React.FC<FlexStoryModalProps> = ({
           type="button"
           onClick={handleExportAndShare}
           disabled={isExporting}
-          className="w-full min-h-[50px] py-3.5 px-4 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] active:scale-95 text-white font-semibold text-[15px] flex items-center justify-center gap-2 transition-all duration-200 ease-in-out hover:scale-[1.01] shadow-sm disabled:opacity-60"
+          className="apple-btn-primary w-full min-h-[48px] py-3 px-4 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {isExporting ? (
             <>
@@ -803,7 +805,7 @@ export const FlexStoryModal: React.FC<FlexStoryModalProps> = ({
             </>
           ) : (
             <>
-              <Share2 className="w-4 h-4 stroke-[1.5]" />
+              <Share2 className="w-4 h-4 stroke-[1.75]" />
               <span>Chia Sẻ Lên Story (HD 1080×1920)</span>
             </>
           )}

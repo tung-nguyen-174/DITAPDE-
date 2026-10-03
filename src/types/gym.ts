@@ -9,11 +9,16 @@ export type MuscleGroup =
   | 'rear_delts' 
   | 'triceps' 
   | 'biceps' 
+  | 'forearms'
   | 'lats' 
+  | 'traps'
   | 'upper_back' 
   | 'lower_back' 
+  | 'neck'
   | 'abs' 
   | 'quads' 
+  | 'adductors'
+  | 'abductors'
   | 'hamstrings' 
   | 'glutes' 
   | 'calves';
@@ -87,6 +92,7 @@ export interface PostComment {
   userAvatar: string;
   userBadge?: string;
   timestamp: string;
+  createdAt?: string | number;
   text: string;
 }
 
@@ -98,6 +104,7 @@ export interface FeedPost {
   userBadge?: string;
   userGym: string;
   timestamp: string;
+  createdAt?: string | number;
   title: string;
   durationMinutes: number;
   totalTonnageKg: number;

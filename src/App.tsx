@@ -3,7 +3,6 @@ import {
   INITIAL_FEED_POSTS, 
   INITIAL_GYM_BUDDIES, 
   INITIAL_NOTIFICATIONS,
-  DEFAULT_EXERCISES,
   DISCOVERABLE_GYM_USERS,
   createBuddyAndPostFromQuery
 } from './data/mockData';
@@ -11,7 +10,6 @@ import {
   FeedPost, 
   GymBuddy, 
   WorkoutSession, 
-  WorkoutExercise, 
   RoutineTemplate,
   PostComment,
   AppNotification
@@ -28,15 +26,13 @@ import { WorkoutInitBottomSheet } from './components/logger/WorkoutInitBottomShe
 import { CrashRecoverySnackbar } from './components/common/CrashRecoverySnackbar';
 import { SummaryScreen } from './components/summary/SummaryScreen';
 import { useDeviceOrientation } from './hooks/useDeviceOrientation';
-import { Smartphone, Tablet, RotateCw, Monitor } from 'lucide-react';
 import { AuthProvider, useAuth } from './firebase/AuthContext';
 import { AuthModal } from './components/auth/AuthModal';
 import { testConnection } from './firebase/connectionTest';
 import { 
-  publishPostToFirestore, 
+  publishWorkoutAndPostBatch,
   subscribeToFeedPosts, 
   togglePostDap, 
-  saveWorkoutSessionToDb,
   deletePostFromFirestore,
   updatePostInFirestore,
   addCommentToPost,
@@ -44,6 +40,11 @@ import {
   findUserByUsernameOrEmail,
   syncFriendsToFirestore
 } from './firebase/firestoreService';
+import { TelemetryParser } from './utils/fitnessCalculations';
+import {
+  sortPostsByRealTime,
+  formatRealTimeDisplay,
+} from './utils/postTimestamp';
 import {
   RoutineForkService,
   RoutineModel,
@@ -62,18 +63,12 @@ function GymChuotAppContent() {
   const [isPhoneFrame, setIsPhoneFrame] = useState<boolean>(true);
   
   // Device Orientation Hook (Reacts to physical mobile & tablet rotation + simulation)
-  const orientationState = useDeviceOrientation();
   const {
     orientation,
     isLandscape,
-    isPortrait,
     deviceType,
     isTablet,
-    isMobile,
-    toggleRotate,
-    simulatedDevice,
-    setSimulatedDevice,
-  } = orientationState;
+  } = useDeviceOrientation();
 
   // App Data State
   const NUDGE_COOLDOWN_MS = 30 * 60 * 1000; // 30 phút chống spam
@@ -87,10 +82,10 @@ function GymChuotAppContent() {
   });
   const [posts, setPosts] = useState<FeedPost[]>(INITIAL_FEED_POSTS);
   const [buddies, setBuddies] = useState<GymBuddy[]>(() =>
-    INITIAL_GYM_BUDDIES.map((b) => ({
-      ...b,
-      lastNudgeTime: nudgeCooldowns[b.id] || b.lastNudgeTime,
-    }))
+    INITIAL_GYM_BUDDIES.map((b) => {
+      const lastNudge = nudgeCooldowns[b.id] ?? b.lastNudgeTime;
+      return lastNudge !== undefined ? { ...b, lastNudgeTime: lastNudge } : { ...b };
+    })
   );
   const [streakWeeks, setStreakWeeks] = useState<number>(6);
   const [customAvatar, setCustomAvatar] = useState<string | null>(() =>
@@ -111,6 +106,30 @@ function GymChuotAppContent() {
   };
   const [hasUserLoggedWorkout, setHasUserLoggedWorkout] = useState<boolean>(false);
   const [userLoggedVolumeTons, setUserLoggedVolumeTons] = useState<number>(0);
+  const [isBottomReloading, setIsBottomReloading] = useState<boolean>(false);
+  const wasAtBottomRef = useRef<boolean>(false);
+  const lastScrollReloadTimeRef = useRef<number>(0);
+
+  const handleMainScroll = (e: React.UIEvent<HTMLElement>) => {
+    const el = e.currentTarget;
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const isAtBottom = el.scrollTop > 40 && distanceToBottom <= 12;
+
+    if (isAtBottom && !wasAtBottomRef.current) {
+      wasAtBottomRef.current = true;
+      const now = Date.now();
+      if (now - lastScrollReloadTimeRef.current > 2500) {
+        lastScrollReloadTimeRef.current = now;
+        setIsBottomReloading(true);
+        showToast('🔄 Đã làm mới Bảng Tin thành công!', 'cyan');
+        setTimeout(() => {
+          setIsBottomReloading(false);
+        }, 700);
+      }
+    } else if (distanceToBottom > 48) {
+      wasAtBottomRef.current = false;
+    }
+  };
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
     try {
       const saved = localStorage.getItem('ditapde_notifications_v1');
@@ -210,10 +229,10 @@ function GymChuotAppContent() {
       if (profile.streakWeeks) setStreakWeeks(profile.streakWeeks);
       if (profile.friends && profile.friends.length > 0) {
         setBuddies(
-          profile.friends.map((friend) => ({
-            ...friend,
-            lastNudgeTime: nudgeCooldowns[friend.id] || friend.lastNudgeTime,
-          }))
+          profile.friends.map((friend) => {
+            const lastNudge = nudgeCooldowns[friend.id] ?? friend.lastNudgeTime;
+            return lastNudge !== undefined ? { ...friend, lastNudgeTime: lastNudge } : { ...friend };
+          })
         );
         // Ensure any discoverable friend's posts are also synced into feed posts
         setPosts((prevPosts) => {
@@ -236,9 +255,9 @@ function GymChuotAppContent() {
     testConnection();
   }, []);
 
-  // Listen to real-time feed posts once auth is ready and user is authenticated
+  // Listen to real-time feed posts and sort in real time (newest first)
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading) return;
     try {
       const unsubscribe = subscribeToFeedPosts((firestorePosts) => {
         if (firestorePosts.length > 0) {
@@ -248,7 +267,7 @@ function GymChuotAppContent() {
             prev.forEach((p) => {
               if (!map.has(p.id)) map.set(p.id, p);
             });
-            return Array.from(map.values());
+            return sortPostsByRealTime(Array.from(map.values()));
           });
         }
       });
@@ -257,12 +276,6 @@ function GymChuotAppContent() {
       console.warn('Real-time feed listener note:', e);
     }
   }, [loading, user]);
-
-  // Track orientation reference silently without intrusive resize toasts
-  const prevOrientationRef = useRef(orientation);
-  useEffect(() => {
-    prevOrientationRef.current = orientation;
-  }, [orientation]);
 
   // Active / Draft Workout Session loaded from Local DB (Isar Cache) for Crash Recovery
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(() =>
@@ -350,16 +363,17 @@ function GymChuotAppContent() {
       prev.map((post) => {
         if (post.id === postId) {
           const nextDapped = !post.isDapped;
-          if (user) {
-            togglePostDap(postId, user.uid, !nextDapped).catch((err) => {
-              console.warn('Dap sync notice:', err);
-            });
-          }
-          return {
+          const updatedPost: FeedPost = {
             ...post,
             isDapped: nextDapped,
             dapsCount: nextDapped ? post.dapsCount + 1 : Math.max(0, post.dapsCount - 1),
           };
+          if (user) {
+            togglePostDap(postId, user.uid, !nextDapped, updatedPost).catch((err) => {
+              console.warn('Dap sync notice:', err);
+            });
+          }
+          return updatedPost;
         }
         return post;
       })
@@ -527,9 +541,18 @@ function GymChuotAppContent() {
     setBuddies(updatedBuddies);
 
     if (targetPost) {
+      const nowMs = Date.now();
+      const stampedTargetPost: FeedPost = {
+        ...targetPost,
+        createdAt: targetPost.createdAt || new Date(nowMs).toISOString(),
+        timestamp:
+          !targetPost.timestamp || targetPost.timestamp === 'Vừa xong'
+            ? formatRealTimeDisplay(nowMs, nowMs)
+            : targetPost.timestamp,
+      };
       setPosts((prev) => {
-        if (prev.some((p) => p.id === targetPost!.id)) return prev;
-        return [targetPost!, ...prev];
+        if (prev.some((p) => p.id === stampedTargetPost.id)) return prev;
+        return sortPostsByRealTime([stampedTargetPost, ...prev]);
       });
     }
 
@@ -570,7 +593,7 @@ function GymChuotAppContent() {
     showToast('🗑️ Đã xóa bài viết thành công!', 'orange');
     if (user) {
       try {
-        await deletePostFromFirestore(postId);
+        await deletePostFromFirestore(postId, user.uid);
       } catch (e) {
         console.warn('Error deleting post:', e);
       }
@@ -578,13 +601,20 @@ function GymChuotAppContent() {
   };
 
   const handleEditPost = async (postId: string, newTitle: string, newCaption: string) => {
+    let targetPost: FeedPost | undefined;
     setPosts((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, title: newTitle, caption: newCaption } : p))
+      prev.map((p) => {
+        if (p.id === postId) {
+          targetPost = { ...p, title: newTitle, caption: newCaption };
+          return targetPost;
+        }
+        return p;
+      })
     );
     showToast('✅ Đã cập nhật bài viết thành công!', 'green');
     if (user) {
       try {
-        await updatePostInFirestore(postId, { title: newTitle, caption: newCaption });
+        await updatePostInFirestore(postId, { title: newTitle, caption: newCaption }, targetPost);
       } catch (e) {
         console.warn('Error updating post:', e);
       }
@@ -602,22 +632,10 @@ function GymChuotAppContent() {
     setPosts((prev) =>
       prev.map((p) => {
         if (p.id === postId) {
-          const topEx = p.workoutSummary.exercises[0];
-          const rpeMatch = topEx?.topSet?.match(/RPE\s*([\d.]+)/i);
-          const parsedRpe = rpeMatch ? parseFloat(rpeMatch[1]) : 9.0;
-          const cleanTopSet = topEx?.topSet
-            ? topEx.topSet.replace(/\s*\(RPE[^)]*\)/i, '').replace(/x/i, '×')
-            : '120 kg × 5 lần';
-          const defaultTelemetry = {
-            exercise: topEx?.name || 'Barbell Bench Press',
-            weightReps: cleanTopSet,
-            rpe: parsedRpe,
-            volume: `${p.totalTonnageKg.toLocaleString()} kg`,
-          };
           updatedMediaObj = {
             type: mediaType,
             url: mediaUrl,
-            telemetryData: p.media?.telemetryData || defaultTelemetry,
+            telemetryData: TelemetryParser.extractPostTelemetryOverlay(p),
           };
           return {
             ...p,
@@ -645,20 +663,25 @@ function GymChuotAppContent() {
   };
 
   const handleAddComment = async (postId: string, commentText: string) => {
+    const nowMs = Date.now();
+    const nowIso = new Date(nowMs).toISOString();
     const authorName = profile?.name || user?.displayName || 'Gymer DiTapDe';
     const authorAvatar = customAvatar || profile?.avatar || user?.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80';
     const newComment: PostComment = {
-      id: `comment-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `comment-${nowMs}-${Math.random().toString(36).substr(2, 4)}`,
       userId: user?.uid,
       userName: authorName,
       userAvatar: authorAvatar,
-      timestamp: 'Vừa xong',
+      timestamp: formatRealTimeDisplay(nowMs, nowMs),
+      createdAt: nowIso,
       text: commentText,
     };
 
+    let targetPost: FeedPost | undefined;
     setPosts((prev) =>
       prev.map((p) => {
         if (p.id === postId) {
+          targetPost = p;
           const currentComments = p.comments || [];
           return {
             ...p,
@@ -674,7 +697,7 @@ function GymChuotAppContent() {
 
     if (user) {
       try {
-        await addCommentToPost(postId, newComment);
+        await addCommentToPost(postId, newComment, targetPost);
       } catch (e) {
         console.warn('Error adding comment:', e);
       }
@@ -695,18 +718,29 @@ function GymChuotAppContent() {
   };
 
   const handlePublishToFeed = async (newPost: FeedPost) => {
+    const nowMs = Date.now();
+    const createdAt =
+      typeof newPost.createdAt === 'string' && newPost.createdAt
+        ? newPost.createdAt
+        : new Date(nowMs).toISOString();
+    const formattedTime = formatRealTimeDisplay(Date.parse(createdAt) || nowMs, nowMs);
+
     const enrichedPost: FeedPost = user && profile ? {
       ...newPost,
       userId: user.uid,
       userName: profile.name,
       userAvatar: customAvatar || profile.avatar || user.photoURL || newPost.userAvatar,
       userGym: profile.gymVenue || newPost.userGym,
+      createdAt,
+      timestamp: formattedTime,
     } : {
       ...newPost,
       userAvatar: customAvatar || newPost.userAvatar,
+      createdAt,
+      timestamp: formattedTime,
     };
 
-    setPosts([enrichedPost, ...posts]);
+    setPosts((prev) => sortPostsByRealTime([enrichedPost, ...prev.filter((p) => p.id !== enrichedPost.id)]));
     setHasUserLoggedWorkout(true);
     setUserLoggedVolumeTons((prev) => Number((prev + (enrichedPost.totalTonnageKg || 0) / 1000).toFixed(2)));
     WorkoutDraftCacheService.clearDraftSession();
@@ -716,13 +750,10 @@ function GymChuotAppContent() {
     setActiveTab('feed');
     showToast('🎉 Đã đăng buổi tập lên Bảng Tin DiTapDe!', 'green');
 
-    // Sync to Firestore Cloud if authenticated
+    // Sync to Firestore Cloud atomically in a single batch write if authenticated
     if (user) {
       try {
-        await publishPostToFirestore(enrichedPost);
-        if (completedSession) {
-          await saveWorkoutSessionToDb(user.uid, completedSession);
-        }
+        await publishWorkoutAndPostBatch(user.uid, enrichedPost, completedSession);
       } catch (err) {
         console.warn('Firestore sync note:', err);
       }
@@ -730,17 +761,17 @@ function GymChuotAppContent() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#17161A] flex flex-col items-center justify-start text-[#F2F1ED] selection:bg-[#E4483C] selection:text-[#F2F1ED] box-border overflow-x-hidden">
+    <div className="min-h-[100dvh] w-full bg-zinc-950 flex flex-col items-center justify-start text-zinc-100 selection:bg-[#E4483C] selection:text-white box-border overflow-x-hidden">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 z-50 animate-in fade-in slide-in-from-top-4 duration-200 px-4 sm:px-6">
           <div
-            className={`px-4 py-2 rounded-[14px] border font-semibold text-[13px] flex items-center gap-2 ${
+            className={`px-4 py-2.5 rounded-2xl border font-semibold text-xs tracking-tight flex items-center gap-2 backdrop-blur-xl shadow-xl shadow-black/25 ${
               toast.type === 'cyan'
-                ? 'bg-[#3E8EDE] text-[#F2F1ED] border-[#3E8EDE]'
+                ? 'bg-[#3E8EDE]/90 text-white border-white/20'
                 : toast.type === 'green'
-                ? 'bg-[#4CAF6D] text-[#17161A] border-[#4CAF6D]'
-                : 'bg-[#E4483C] text-[#F2F1ED] border-[#E4483C]'
+                ? 'bg-emerald-600/90 text-white border-white/20'
+                : 'bg-[#E4483C]/90 text-white border-white/20'
             }`}
           >
             <span>{toast.message}</span>
@@ -749,7 +780,7 @@ function GymChuotAppContent() {
       )}
 
       {/* Main Container: Automatically Responsive Full-Viewport Layout */}
-      <div className="w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#17161A] flex flex-col">
+      <div className="w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-zinc-950 flex flex-col">
         {/* Render View according to currentScreen */}
         {currentScreen === 'logger' && activeSession ? (
           <div className="flex-1 min-h-0 overflow-y-auto scroll-touch">
@@ -757,7 +788,7 @@ function GymChuotAppContent() {
               session={activeSession}
               onUpdateSession={(updated) => {
                 setActiveSession(updated);
-                WorkoutDraftCacheService.saveDraftSession(updated);
+                WorkoutDraftCacheService.saveDraftSessionAsync(updated);
               }}
               onFinishSession={handleFinishWorkout}
               onCancelSession={() => setCurrentScreen('tabs')}
@@ -779,7 +810,7 @@ function GymChuotAppContent() {
           </div>
         ) : (
           <div className="flex flex-col flex-1 h-full min-h-0 relative">
-            {/* Top Header with Gym Chuột Logo, Reload Feed & Real Notifications */}
+            {/* Top Header with Gym Chuột Logo & Real Notifications */}
             <Header
               currentGym={currentGym}
               streakWeeks={streakWeeks}
@@ -787,7 +818,6 @@ function GymChuotAppContent() {
               onTogglePhoneFrame={() => setIsPhoneFrame(!isPhoneFrame)}
               orientation={orientation}
               deviceType={deviceType}
-              onReloadFeed={() => showToast('🔄 Đã làm mới Bảng Tin thành công!', 'cyan')}
               onShowNotification={(msg) => showToast(msg, 'cyan')}
               notifications={notifications}
               onMarkNotificationRead={handleMarkNotificationRead}
@@ -800,7 +830,10 @@ function GymChuotAppContent() {
             />
 
             {/* Active Tab Screen */}
-            <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain scroll-touch">
+            <main
+              onScroll={handleMainScroll}
+              className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain scroll-touch"
+            >
               {activeTab === 'feed' && (
                 <FeedScreen
                   posts={posts}
@@ -868,6 +901,7 @@ function GymChuotAppContent() {
                   onSendNudge={handleSendNudge}
                   onGoToFeed={() => setActiveTab('feed')}
                   onGoToDiscover={() => setActiveTab('discover')}
+                  onOpenLogger={handleStartNewWorkout}
                   activeGymCheckIn={activeGymCheckIn}
                   savedRoutines={savedRoutines}
                   onCreateCustomRoutine={handleCreateCustomRoutine}
@@ -884,6 +918,12 @@ function GymChuotAppContent() {
                     );
                   }}
                 />
+              )}
+              {isBottomReloading && (
+                <div className="py-4 flex items-center justify-center gap-2 text-xs font-display font-medium text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>Đang làm mới trang...</span>
+                </div>
               )}
             </main>
 

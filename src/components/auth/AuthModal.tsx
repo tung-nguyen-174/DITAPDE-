@@ -139,17 +139,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-zinc-950/75 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/75 backdrop-blur-md">
       <div
-        className="w-full max-w-md backdrop-blur-md bg-zinc-900/95 border border-zinc-800 rounded-2xl p-6 sm:p-8 flex flex-col gap-5 relative text-zinc-100 shadow-2xl"
+        className="w-full max-w-md bg-zinc-950/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col gap-5 relative text-zinc-100 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
           aria-label="Đóng cửa sổ đăng nhập"
-          className="absolute top-4 right-4 min-w-[40px] min-h-[40px] w-10 h-10 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+          className="absolute top-5 right-5 w-10 h-10 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400"
         >
-          <X className="w-5 h-5 stroke-[1.5]" />
+          <X className="w-5 h-5 stroke-[1.75]" />
         </button>
 
         <div className="flex flex-col items-center text-center gap-2 pt-2">
@@ -162,7 +162,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           </p>
         </div>
 
-        <div className="flex bg-zinc-950/80 p-1.5 rounded-xl border border-zinc-800 gap-2">
+        {/* Tab Switcher (Apple Segmented Control) */}
+        <div className="apple-segmented-control w-full">
           <button
             type="button"
             onClick={() => {
@@ -170,10 +171,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               setErrorMsg(null);
               setIsEmailDisabledError(false);
             }}
-            className={`flex-1 min-h-[40px] py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
+            className={`flex-1 min-h-[38px] py-2 text-xs rounded-xl transition-all duration-200 ease-out active:scale-[0.98] ${
               tab === 'signin'
-                ? 'bg-zinc-800 text-zinc-100 font-semibold shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-100'
+                ? 'bg-white/15 text-white font-semibold shadow-xs border border-white/10'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
             }`}
           >
             Đăng nhập
@@ -185,10 +186,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               setErrorMsg(null);
               setIsEmailDisabledError(false);
             }}
-            className={`flex-1 min-h-[40px] py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
+            className={`flex-1 min-h-[38px] py-2 text-xs rounded-xl transition-all duration-200 ease-out active:scale-[0.98] ${
               tab === 'signup'
-                ? 'bg-zinc-800 text-zinc-100 font-semibold shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-100'
+                ? 'bg-white/15 text-white font-semibold shadow-xs border border-white/10'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
             }`}
           >
             Đăng ký mới
@@ -200,7 +201,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             type="button"
             onClick={handleGoogleSubmit}
             disabled={isLoading}
-            className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-zinc-950 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-100 font-medium text-sm transition-all duration-200 flex items-center justify-center gap-3 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            className="apple-btn-secondary w-full min-h-[44px] py-2.5 px-4 text-zinc-100 font-medium text-sm flex items-center justify-center gap-3 disabled:opacity-50"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path
@@ -230,7 +231,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               type="button"
               onClick={handleAppleSubmit}
               disabled={isLoading}
-              className="min-h-[44px] py-2 px-3 rounded-xl bg-zinc-950 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-100 font-medium text-xs transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+              className="apple-btn-secondary min-h-[44px] py-2 px-3 text-zinc-100 font-medium text-xs flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
                 <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
@@ -242,26 +243,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               type="button"
               onClick={handleAnonSubmit}
               disabled={isLoading || Boolean(user?.isAnonymous)}
-              className="min-h-[44px] py-2 px-3 rounded-xl bg-zinc-950 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-400 hover:text-zinc-100 font-medium text-xs transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+              className="apple-btn-secondary min-h-[44px] py-2 px-3 text-zinc-300 font-medium text-xs flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <UserIcon className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
+              <UserIcon className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
               <span>{user?.isAnonymous ? 'Đang dùng Khách' : 'Chế độ Khách'}</span>
             </button>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-zinc-800" />
+          <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs font-normal text-zinc-500">
             Hoặc tiếp tục bằng email
           </span>
-          <div className="flex-1 h-px bg-zinc-800" />
+          <div className="flex-1 h-px bg-white/10" />
         </div>
 
         <form onSubmit={handleEmailSubmit} className="flex flex-col gap-4">
           {tab === 'signup' && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400 block">
+              <label className="text-xs text-zinc-400 block font-medium">
                 Tên hiển thị
               </label>
               <div className="relative">
@@ -270,15 +271,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Ví dụ: Long Aura, Tuấn Hùng..."
-                  className="w-full min-h-[44px] bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 pl-10 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                  className="apple-input w-full min-h-[44px] px-4 py-2.5 pl-10 text-sm"
                 />
-                <UserIcon className="w-4 h-4 text-zinc-400 stroke-[1.5] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <UserIcon className="w-4 h-4 text-zinc-400 stroke-[1.75] absolute left-3.5 top-1/2 -translate-y-1/2" />
               </div>
             </div>
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400 block">
+            <label className="text-xs text-zinc-400 block font-medium">
               Địa chỉ email
             </label>
             <div className="relative">
@@ -288,14 +289,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="lifter@ditapde.vn"
-                className="w-full min-h-[44px] bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 pl-10 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                className="apple-input w-full min-h-[44px] px-4 py-2.5 pl-10 text-sm"
               />
-              <Mail className="w-4 h-4 text-zinc-400 stroke-[1.5] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Mail className="w-4 h-4 text-zinc-400 stroke-[1.75] absolute left-3.5 top-1/2 -translate-y-1/2" />
             </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400 block">
+            <label className="text-xs text-zinc-400 block font-medium">
               Mật khẩu
             </label>
             <div className="relative">
@@ -305,27 +306,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Tối thiểu 6 ký tự"
-                className="w-full min-h-[44px] bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 pl-10 pr-11 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                className="apple-input w-full min-h-[44px] px-4 py-2.5 pl-10 pr-11 text-sm"
               />
-              <Lock className="w-4 h-4 text-zinc-400 stroke-[1.5] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Lock className="w-4 h-4 text-zinc-400 stroke-[1.75] absolute left-3.5 top-1/2 -translate-y-1/2" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label="Hiện hoặc ẩn mật khẩu"
-                className="min-w-[40px] min-h-[40px] w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-zinc-100 absolute right-0.5 top-1/2 -translate-y-1/2"
+                className="w-9 h-9 flex items-center justify-center text-zinc-400 hover:text-zinc-100 hover:bg-white/10 absolute right-1 top-1/2 -translate-y-1/2 rounded-xl transition-all duration-200 active:scale-[0.96]"
               >
                 {showPassword ? (
-                  <EyeOff className="w-4 h-4 stroke-[1.5]" />
+                  <EyeOff className="w-4 h-4 stroke-[1.75]" />
                 ) : (
-                  <Eye className="w-4 h-4 stroke-[1.5]" />
+                  <Eye className="w-4 h-4 stroke-[1.75]" />
                 )}
               </button>
             </div>
           </div>
 
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-zinc-100 flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-rose-400 stroke-[1.5] shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-zinc-100 flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-rose-400 stroke-[1.75] shrink-0 mt-0.5" />
               <div className="flex-1 flex flex-col gap-1">
                 <p className="font-semibold text-rose-400">{errorMsg}</p>
                 {isEmailDisabledError && (
@@ -340,20 +341,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-sm font-semibold shadow-sm transition-all duration-200 ease-in-out hover:scale-[1.01] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="apple-btn-primary w-full min-h-[44px] py-2.5 px-4 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isLoading ? (
-              <span className="inline-block w-4 h-4 border-2 border-zinc-950/30 border-t-zinc-950 rounded-full animate-spin" />
+              <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
-                <Flame className="w-4 h-4 stroke-[1.5]" />
+                <Flame className="w-4 h-4 stroke-[1.75]" />
                 <span>{tab === 'signin' ? 'Đăng nhập' : 'Tạo tài khoản'}</span>
               </>
             )}
           </button>
         </form>
 
-        <div className="pt-3 border-t border-zinc-800 text-center">
+        <div className="pt-3 border-t border-white/10 text-center">
           <p className="text-xs text-zinc-400">
             {tab === 'signin' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}{' '}
             <button
@@ -363,7 +364,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 setErrorMsg(null);
                 setIsEmailDisabledError(false);
               }}
-              className="px-2 text-emerald-400 font-semibold hover:underline"
+              className="px-2 text-[#E4483C] font-semibold hover:underline"
             >
               {tab === 'signin' ? 'Đăng ký ngay' : 'Đăng nhập tại đây'}
             </button>

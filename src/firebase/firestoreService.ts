@@ -12,22 +12,62 @@ import {
   limit, 
   increment,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from './config';
 import { handleFirestoreError, OperationType } from './errorHandler';
 import { FeedPost, WorkoutSession, PostComment, GymBuddy } from '../types/gym';
 import { UserProfileData } from './auth';
+import { sortPostsByRealTime, formatRealTimeDisplay } from '../utils/postTimestamp';
+
+/**
+ * Recursively strips `undefined` properties from plain objects and arrays
+ * while preserving Firestore FieldValue sentinels (increment, arrayUnion, arrayRemove).
+ */
+export function stripUndefinedDeep<T>(value: T): T {
+  if (value === undefined) {
+    return undefined as unknown as T;
+  }
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => stripUndefinedDeep(item)) as unknown as T;
+  }
+  const proto = Object.getPrototypeOf(value);
+  if (proto && proto !== Object.prototype) {
+    return value;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v !== undefined) {
+      result[k] = stripUndefinedDeep(v);
+    }
+  }
+  return result as T;
+}
 
 /**
  * Publish a new workout post to Firestore /posts/{postId}
  */
 export async function publishPostToFirestore(post: FeedPost): Promise<void> {
   const postRef = doc(db, 'posts', post.id);
-  const payload = {
+  const nowMs = Date.now();
+  const createdAt =
+    typeof post.createdAt === 'string' && post.createdAt
+      ? post.createdAt
+      : new Date(nowMs).toISOString();
+  const payload = stripUndefinedDeep({
     ...post,
-    createdAt: new Date().toISOString(),
-  };
+    timestamp:
+      !post.timestamp || post.timestamp === 'Vừa xong'
+        ? formatRealTimeDisplay(Date.parse(createdAt) || nowMs, nowMs)
+        : post.timestamp,
+    createdAt,
+  });
 
   try {
     await setDoc(postRef, payload);
@@ -37,7 +77,7 @@ export async function publishPostToFirestore(post: FeedPost): Promise<void> {
 }
 
 /**
- * Real-time subscription to community feed posts
+ * Real-time subscription to community feed posts sorted by real publication time
  */
 export function subscribeToFeedPosts(
   onData: (posts: FeedPost[]) => void
@@ -53,7 +93,7 @@ export function subscribeToFeedPosts(
         posts.push(docSnap.data() as FeedPost);
       });
       if (posts.length > 0) {
-        onData(posts);
+        onData(sortPostsByRealTime(posts));
       }
     },
     (error) => {
@@ -65,11 +105,40 @@ export function subscribeToFeedPosts(
 }
 
 /**
- * Toggle a Dap (Clap/Kudo) on a feed post
+ * Toggle a Dap (Clap/Kudo) on a feed post.
+ * Safely checks whether the post exists in Firestore first so initial/local seed posts
+ * can be upserted cleanly instead of failing updateDoc on a non-existent document.
  */
-export async function togglePostDap(postId: string, userId: string, hasDapped: boolean): Promise<void> {
+export async function togglePostDap(
+  postId: string,
+  userId: string,
+  hasDapped: boolean,
+  fallbackPost?: FeedPost
+): Promise<void> {
   const postRef = doc(db, 'posts', postId);
   try {
+    const snap = await getDoc(postRef);
+    if (!snap.exists()) {
+      if (fallbackPost) {
+        const nowMs = Date.now();
+        const createdAt =
+          typeof fallbackPost.createdAt === 'string' && fallbackPost.createdAt
+            ? fallbackPost.createdAt
+            : new Date(nowMs).toISOString();
+        await setDoc(
+          postRef,
+          stripUndefinedDeep({
+            ...fallbackPost,
+            id: postId,
+            dapsCount: Math.max(0, fallbackPost.dapsCount),
+            dappedBy: hasDapped ? [] : [userId],
+            createdAt,
+          })
+        );
+      }
+      return;
+    }
+
     if (hasDapped) {
       await updateDoc(postRef, {
         dapsCount: increment(-1),
@@ -87,15 +156,63 @@ export async function togglePostDap(postId: string, userId: string, hasDapped: b
 }
 
 /**
+ * Atomically publish a workout post and save the completed workout session
+ * in a single Firestore batch write (`writeBatch`).
+ */
+export async function publishWorkoutAndPostBatch(
+  userId: string,
+  post: FeedPost,
+  session?: WorkoutSession | null
+): Promise<void> {
+  const batch = writeBatch(db);
+  const nowMs = Date.now();
+  const nowIso =
+    typeof post.createdAt === 'string' && post.createdAt
+      ? post.createdAt
+      : new Date(nowMs).toISOString();
+
+  const postRef = doc(db, 'posts', post.id);
+  batch.set(
+    postRef,
+    stripUndefinedDeep({
+      ...post,
+      timestamp:
+        !post.timestamp || post.timestamp === 'Vừa xong'
+          ? formatRealTimeDisplay(Date.parse(nowIso) || nowMs, nowMs)
+          : post.timestamp,
+      createdAt: nowIso,
+    })
+  );
+
+  if (session) {
+    const sessionRef = doc(db, 'users', userId, 'sessions', session.id);
+    batch.set(
+      sessionRef,
+      stripUndefinedDeep({
+        ...session,
+        userId,
+        createdAt: nowIso,
+      })
+    );
+  }
+
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `posts/${post.id}`);
+  }
+}
+
+/**
  * Save user workout session to /users/{userId}/sessions/{sessionId}
  */
 export async function saveWorkoutSessionToDb(userId: string, session: WorkoutSession): Promise<void> {
   const sessionRef = doc(db, 'users', userId, 'sessions', session.id);
-  const payload = {
+  const payload = stripUndefinedDeep({
     ...session,
     userId,
     createdAt: new Date().toISOString(),
-  };
+  });
 
   try {
     await setDoc(sessionRef, payload);
@@ -105,11 +222,17 @@ export async function saveWorkoutSessionToDb(userId: string, session: WorkoutSes
 }
 
 /**
- * Delete a post from Firestore /posts/{postId}
+ * Delete a post from Firestore /posts/{postId} if it exists and is owned by the user
  */
-export async function deletePostFromFirestore(postId: string): Promise<void> {
+export async function deletePostFromFirestore(postId: string, currentUserId?: string): Promise<void> {
   const postRef = doc(db, 'posts', postId);
   try {
+    const snap = await getDoc(postRef);
+    if (!snap.exists()) return;
+    const ownerId = snap.data()?.userId;
+    if (currentUserId && ownerId && ownerId !== currentUserId) {
+      return;
+    }
     await deleteDoc(postRef);
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `posts/${postId}`);
@@ -120,12 +243,28 @@ export async function deletePostFromFirestore(postId: string): Promise<void> {
  * Update a post title, caption, or media in Firestore
  */
 export async function updatePostInFirestore(
-  postId: string, 
-  updates: { title?: string; caption?: string; media?: FeedPost['media'] }
+  postId: string,
+  updates: { title?: string; caption?: string; media?: FeedPost['media'] },
+  fallbackPost?: FeedPost
 ): Promise<void> {
   const postRef = doc(db, 'posts', postId);
+  const cleanUpdates = stripUndefinedDeep(updates);
   try {
-    await updateDoc(postRef, updates);
+    const snap = await getDoc(postRef);
+    if (!snap.exists()) {
+      if (fallbackPost) {
+        await setDoc(
+          postRef,
+          stripUndefinedDeep({
+            ...fallbackPost,
+            ...cleanUpdates,
+            id: postId,
+          })
+        );
+      }
+      return;
+    }
+    await updateDoc(postRef, cleanUpdates);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `posts/${postId}`);
   }
@@ -135,13 +274,21 @@ export async function updatePostInFirestore(
  * Add a comment to a feed post and create /posts/{postId}/comments/{commentId}
  * to trigger the automated Firebase Cloud Function notification.
  */
-export async function addCommentToPost(postId: string, comment: PostComment): Promise<void> {
+export async function addCommentToPost(
+  postId: string,
+  comment: PostComment,
+  fallbackPost?: FeedPost
+): Promise<void> {
   const postRef = doc(db, 'posts', postId);
   const commentId = (comment.id || `comment_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
   const commentDocRef = doc(db, 'posts', postId, 'comments', commentId);
+  const cleanComment = stripUndefinedDeep(comment);
 
   try {
-    await setDoc(commentDocRef, {
+    const snap = await getDoc(postRef);
+    const batch = writeBatch(db);
+
+    batch.set(commentDocRef, {
       id: commentId,
       postId,
       userId: comment.userId || '',
@@ -151,17 +298,33 @@ export async function addCommentToPost(postId: string, comment: PostComment): Pr
       timestamp: comment.timestamp || 'Vừa xong',
       createdAt: new Date().toISOString(),
     });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, `posts/${postId}/comments/${commentId}`);
-  }
 
-  try {
-    await updateDoc(postRef, {
-      commentsCount: increment(1),
-      comments: arrayUnion(comment),
-    });
+    if (snap.exists()) {
+      batch.update(postRef, {
+        commentsCount: increment(1),
+        comments: arrayUnion(cleanComment),
+      });
+    } else if (fallbackPost) {
+      const nowMs = Date.now();
+      const createdAt =
+        typeof fallbackPost.createdAt === 'string' && fallbackPost.createdAt
+          ? fallbackPost.createdAt
+          : new Date(nowMs).toISOString();
+      batch.set(
+        postRef,
+        stripUndefinedDeep({
+          ...fallbackPost,
+          id: postId,
+          commentsCount: (fallbackPost.commentsCount || 0) + 1,
+          comments: [...(fallbackPost.comments || []), cleanComment],
+          createdAt,
+        })
+      );
+    }
+
+    await batch.commit();
   } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `posts/${postId}`);
+    handleFirestoreError(error, OperationType.WRITE, `posts/${postId}/comments/${commentId}`);
   }
 }
 
@@ -243,8 +406,9 @@ export async function findUserByUsernameOrEmail(searchQuery: string): Promise<Gy
  */
 export async function syncFriendsToFirestore(userId: string, friends: GymBuddy[]): Promise<void> {
   const userRef = doc(db, 'users', userId);
+  const cleanFriends = stripUndefinedDeep(friends);
   try {
-    await updateDoc(userRef, { friends });
+    await setDoc(userRef, { friends: cleanFriends }, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
   }

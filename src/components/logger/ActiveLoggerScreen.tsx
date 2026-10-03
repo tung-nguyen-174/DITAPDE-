@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   X, 
   Clock, 
@@ -7,7 +7,9 @@ import {
   Trash2, 
   Flame,
   Search,
-  Dumbbell
+  Dumbbell,
+  Trophy,
+  CheckCircle2
 } from 'lucide-react';
 import { WorkoutSession, WorkoutExercise, ExerciseSet, MuscleGroup } from '../../types/gym';
 import { PlateCalculatorModal } from '../common/PlateCalculatorModal';
@@ -15,13 +17,20 @@ import { RestTimerDrawer } from '../common/RestTimerDrawer';
 import { ValidatedSetRow } from './ValidatedSetRow';
 import { SupersetGroupCard } from './SupersetGroupCard';
 import { WorkoutEngineToolbar } from './WorkoutEngineToolbar';
-import { getSetsBestE1RM, PLATE_CODE_COLORS } from '../../utils/fitnessCalculations';
+import {
+  getSetsBestE1RM,
+  SetCalculator,
+  TelemetryParser,
+  calculateCompoundLiftsE1RM,
+  COMPOUND_LIFT_DEFINITIONS,
+  CompoundLiftKey,
+} from '../../utils/fitnessCalculations';
+import { WorkoutDraftCacheService } from '../../services/workoutDraftCacheService';
 import {
   ExerciseType,
   EXERCISE_TYPE_META,
   classifyExerciseType,
   calculateSetVolume,
-  calculateSetE1RM,
   resolveEffectiveWeightKg,
   DEFAULT_USER_BODYWEIGHT_KG,
 } from '../../engine/workoutExecutionEngine';
@@ -31,7 +40,15 @@ import {
   resolveSupersetRestOnSetToggle,
 } from '../../engine/supersetExecutionEngine';
 import { UnitConverter, WeightUnit } from '../../engine/unitConverter';
-import { ALL_RAW_EXERCISES, mapStringToMuscleGroup } from '../../services/exerciseImporter';
+import {
+  ALL_RAW_EXERCISES,
+  mapStringToMuscleGroup,
+  buildSetVolumeMapFromExercisesJson,
+  matchesMuscleCategoryFilter,
+  getMuscleGroupLabel,
+  resolveExerciseMusclesFromJson,
+} from '../../services/exerciseImporter';
+import { getColorHexForVolume } from '../common/MuscleHeatmap';
 
 interface ActiveLoggerScreenProps {
   session: WorkoutSession;
@@ -89,21 +106,103 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
     return () => clearInterval(interval);
   }, [session.id]);
 
-  // Keep parent & Local Cache (Isar Draft) updated when stopwatch or title changes
+  const totalTonnage = useMemo(
+    () =>
+      SetCalculator.calculateSessionTonnage(exercises, {
+        bodyweightKg: userBodyweightKg,
+        preferredUnit: unit,
+      }),
+    [exercises, userBodyweightKg, unit]
+  );
+
+  const totalCompletedSets = useMemo(
+    () => SetCalculator.calculateCompletedSetsCount(exercises),
+    [exercises]
+  );
+
+  const muscleSetsMap = useMemo<Partial<Record<MuscleGroup, number>>>(
+    () => buildSetVolumeMapFromExercisesJson(exercises),
+    [exercises]
+  );
+
+  // Calculate E1RM for top compound lifts (Bench, Squat, Deadlift, OHP) from current session's heaviest sets
+  const compoundLiftsSummary = useMemo(
+    () =>
+      calculateCompoundLiftsE1RM(exercises, {
+        bodyweightKg: userBodyweightKg,
+        preferredUnit: unit,
+      }),
+    [exercises, userBodyweightKg, unit]
+  );
+
+  const topThreeCompoundLifts = useMemo(
+    () => compoundLiftsSummary.filter((l) => l.isTopThreeSBD),
+    [compoundLiftsSummary]
+  );
+
+  const syncedCompoundCount = useMemo(
+    () => compoundLiftsSummary.filter((l) => l.hasSessionSet && l.e1rmKg > 0).length,
+    [compoundLiftsSummary]
+  );
+
+  // Automatically sync compound lift E1RMs to 'Kỷ lục cá nhân' whenever session sets update
   useEffect(() => {
-    onUpdateSession({
-      ...session,
-      title: sessionTitle,
-      durationSeconds,
-      exercises,
-      totalTonnageKg: calculateTonnage(exercises),
-      totalSets: calculateTotalCompletedSets(exercises),
-    });
-  }, [durationSeconds, sessionTitle]);
+    if (exercises.length > 0) {
+      WorkoutDraftCacheService.syncCompoundPRsFromSession({
+        exercises,
+        userBodyweightKg,
+        preferredUnit: unit,
+      });
+    }
+  }, [exercises, userBodyweightKg, unit]);
+
+  const handleQuickAddCompoundLift = (liftKey: CompoundLiftKey) => {
+    const def = COMPOUND_LIFT_DEFINITIONS.find((d) => d.key === liftKey);
+    if (!def) return;
+    const defaultWeight =
+      liftKey === 'deadlift' ? 100 : liftKey === 'back_squat' ? 80 : liftKey === 'bench_press' ? 60 : 40;
+    const newEx: WorkoutExercise = {
+      id: `ex-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: def.defaultExerciseName,
+      vietnameseName: def.vietnameseName,
+      primaryMuscle: def.primaryMuscle,
+      secondaryMuscles: [],
+      sets: [
+        {
+          id: `set-${Date.now()}-1`,
+          setNumber: 1,
+          setType: 'N',
+          previous: `${defaultWeight}kg × 5`,
+          weight: defaultWeight,
+          baseWeightKg: defaultWeight,
+          reps: 5,
+          rpe: 8.5,
+          completed: true,
+        },
+      ],
+    };
+    const updated = [...exercises, newEx];
+    setExercises(updated);
+    syncSessionToParent(updated);
+  };
+
+  // Sync draft to parent & Local Cache when title changes or every 10s of elapsed timer
+  useEffect(() => {
+    if (durationSeconds % 10 === 0 || durationSeconds <= 1) {
+      onUpdateSession({
+        ...session,
+        title: sessionTitle,
+        durationSeconds,
+        exercises,
+        totalTonnageKg: totalTonnage,
+        totalSets: totalCompletedSets,
+      });
+    }
+  }, [durationSeconds, sessionTitle, totalTonnage, totalCompletedSets]);
 
   // Rest Timer Countdown
   useEffect(() => {
-    let timer: any;
+    let timer: ReturnType<typeof setInterval> | undefined;
     if (isRestTimerActive && restSecondsRemaining > 0) {
       timer = setInterval(() => {
         setRestSecondsRemaining((prev) => {
@@ -115,41 +214,25 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
         });
       }, 1000);
     }
-    return () => clearInterval(timer);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [isRestTimerActive, restSecondsRemaining]);
 
-  const formatTimer = (totalSec: number) => {
-    const hours = Math.floor(totalSec / 3600);
-    const mins = Math.floor((totalSec % 3600) / 60);
-    const secs = totalSec % 60;
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  const calculateTonnage = useCallback(
+    (exList: WorkoutExercise[], bwKg: number = userBodyweightKg): number =>
+      SetCalculator.calculateSessionTonnage(exList, {
+        bodyweightKg: bwKg,
+        preferredUnit: unit,
+      }),
+    [userBodyweightKg, unit]
+  );
 
-  const calculateTonnage = (
-    exList: WorkoutExercise[],
-    bwKg: number = userBodyweightKg
-  ): number => {
-    return Number(
-      exList
-        .reduce((acc, ex) => {
-          const exTonnage = ex.sets
-            .filter((s) => s.completed)
-            .reduce(
-              (sum, s) =>
-                sum + calculateSetVolume(ex, s, { bodyweightKg: bwKg, preferredUnit: unit }),
-              0
-            );
-          return acc + exTonnage;
-        }, 0)
-        .toFixed(1)
-    );
-  };
-
-  const calculateTotalCompletedSets = (exList: WorkoutExercise[]): number => {
-    return exList.reduce((acc, ex) => {
-      return acc + ex.sets.filter((s) => s.completed).length;
-    }, 0);
-  };
+  const calculateTotalCompletedSets = useCallback(
+    (exList: WorkoutExercise[]): number =>
+      SetCalculator.calculateCompletedSetsCount(exList),
+    []
+  );
 
   const syncSessionToParent = (
     nextExercises: WorkoutExercise[],
@@ -214,26 +297,40 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
     syncSessionToParent(updated);
   };
 
-  const handleUpdateWeight = (exIdx: number, setIdx: number, baseWeightKgVal: number) => {
-    const clampedWeightKg = Math.min(500, Math.max(0, isNaN(baseWeightKgVal) ? 0 : baseWeightKgVal));
-    const updated = [...exercises];
-    updated[exIdx].sets[setIdx] = {
-      ...updated[exIdx].sets[setIdx],
-      weight: clampedWeightKg,
-      baseWeightKg: clampedWeightKg,
-      addedWeightKg: clampedWeightKg,
-      assistedWeightKg: clampedWeightKg,
-    };
-    setExercises(updated);
-    syncSessionToParent(updated);
-  };
+  const handleUpdateWeight = useCallback(
+    (exIdx: number, setIdx: number, baseWeightKgVal: number) => {
+      const clampedWeightKg = Math.min(
+        500,
+        Math.max(0, isNaN(baseWeightKgVal) ? 0 : baseWeightKgVal)
+      );
+      const updated = exercises.map((ex, i) =>
+        i === exIdx
+          ? {
+              ...ex,
+              sets: ex.sets.map((s, j) =>
+                j === setIdx
+                  ? {
+                      ...s,
+                      weight: clampedWeightKg,
+                      baseWeightKg: clampedWeightKg,
+                      addedWeightKg: clampedWeightKg,
+                      assistedWeightKg: clampedWeightKg,
+                    }
+                  : s
+              ),
+            }
+          : ex
+      );
+      setExercises(updated);
+      syncSessionToParent(updated);
+    },
+    [exercises, supersetGroups, userBodyweightKg, unit, sessionTitle, durationSeconds]
+  );
 
   const handleChangeExerciseType = (exIdx: number, nextType: ExerciseType) => {
-    const updated = [...exercises];
-    updated[exIdx] = {
-      ...updated[exIdx],
-      exerciseType: nextType,
-    };
+    const updated = exercises.map((ex, i) =>
+      i === exIdx ? { ...ex, exerciseType: nextType } : ex
+    );
     setExercises(updated);
     syncSessionToParent(updated);
   };
@@ -308,42 +405,50 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
     syncSessionToParent(nextExercises);
   };
 
-  const handleUpdateReps = (exIdx: number, setIdx: number, repsVal: number) => {
-    const clampedReps = Math.min(100, Math.max(0, isNaN(repsVal) ? 0 : repsVal));
-    const updated = [...exercises];
-    updated[exIdx].sets[setIdx].reps = clampedReps;
-    setExercises(updated);
-    onUpdateSession({
-      ...session,
-      title: sessionTitle,
-      durationSeconds,
-      exercises: updated,
-      totalTonnageKg: calculateTonnage(updated),
-      totalSets: calculateTotalCompletedSets(updated),
-    });
-  };
+  const handleUpdateReps = useCallback(
+    (exIdx: number, setIdx: number, repsVal: number) => {
+      const clampedReps = Math.min(100, Math.max(0, isNaN(repsVal) ? 0 : repsVal));
+      const updated = exercises.map((ex, i) =>
+        i === exIdx
+          ? {
+              ...ex,
+              sets: ex.sets.map((s, j) =>
+                j === setIdx ? { ...s, reps: clampedReps } : s
+              ),
+            }
+          : ex
+      );
+      setExercises(updated);
+      syncSessionToParent(updated);
+    },
+    [exercises, supersetGroups, userBodyweightKg, unit, sessionTitle, durationSeconds]
+  );
 
-  const handleUpdateRpe = (exIdx: number, setIdx: number, rpeVal: number) => {
-    const clampedRpe = Math.min(10, Math.max(0, isNaN(rpeVal) ? 0 : rpeVal));
-    const updated = [...exercises];
-    updated[exIdx].sets[setIdx].rpe = clampedRpe;
-    setExercises(updated);
-    onUpdateSession({
-      ...session,
-      title: sessionTitle,
-      durationSeconds,
-      exercises: updated,
-      totalTonnageKg: calculateTonnage(updated),
-      totalSets: calculateTotalCompletedSets(updated),
-    });
-  };
+  const handleUpdateRpe = useCallback(
+    (exIdx: number, setIdx: number, rpeVal: number) => {
+      const clampedRpe = Math.min(10, Math.max(0, isNaN(rpeVal) ? 0 : rpeVal));
+      const updated = exercises.map((ex, i) =>
+        i === exIdx
+          ? {
+              ...ex,
+              sets: ex.sets.map((s, j) =>
+                j === setIdx ? { ...s, rpe: clampedRpe } : s
+              ),
+            }
+          : ex
+      );
+      setExercises(updated);
+      syncSessionToParent(updated);
+    },
+    [exercises, supersetGroups, userBodyweightKg, unit, sessionTitle, durationSeconds]
+  );
 
   const handleAddSet = (exIdx: number) => {
-    const updated = [...exercises];
-    const prevSet = updated[exIdx].sets[updated[exIdx].sets.length - 1];
+    const targetEx = exercises[exIdx];
+    const prevSet = targetEx.sets[targetEx.sets.length - 1];
     const newSet: ExerciseSet = {
       id: `set-${Date.now()}`,
-      setNumber: updated[exIdx].sets.length + 1,
+      setNumber: targetEx.sets.length + 1,
       setType: 'N',
       previous: prevSet ? `${prevSet.weight}kg × ${prevSet.reps}` : '-',
       weight: prevSet?.weight || 60,
@@ -351,58 +456,24 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
       rpe: 8.0,
       completed: false,
     };
-    updated[exIdx].sets.push(newSet);
+    const updated = exercises.map((ex, i) =>
+      i === exIdx ? { ...ex, sets: [...ex.sets, newSet] } : ex
+    );
     setExercises(updated);
-    onUpdateSession({
-      ...session,
-      title: sessionTitle,
-      durationSeconds,
-      exercises: updated,
-      totalTonnageKg: calculateTonnage(updated),
-      totalSets: calculateTotalCompletedSets(updated),
-    });
+    syncSessionToParent(updated);
   };
 
   const handleDeleteExercise = (exIdx: number) => {
     const updated = exercises.filter((_, idx) => idx !== exIdx);
     setExercises(updated);
-    onUpdateSession({
-      ...session,
-      title: sessionTitle,
-      durationSeconds,
-      exercises: updated,
-      totalTonnageKg: calculateTonnage(updated),
-      totalSets: calculateTotalCompletedSets(updated),
-    });
+    syncSessionToParent(updated);
   };
 
   const handleFinish = () => {
-    let bestE1RM = 0;
-    let prCandidate: { exerciseName: string; weight: number; reps: number; e1rm: number } | undefined;
-
-    exercises.forEach((ex) => {
-      ex.sets
-        .filter((s) => s.completed && s.reps > 0)
-        .forEach((s) => {
-          const effWeight = resolveEffectiveWeightKg(ex, s, {
-            bodyweightKg: userBodyweightKg,
-            preferredUnit: unit,
-          });
-          if (effWeight <= 0) return;
-          const e1rm = calculateSetE1RM(ex, s, {
-            bodyweightKg: userBodyweightKg,
-            preferredUnit: unit,
-          });
-          if (e1rm > bestE1RM) {
-            bestE1RM = e1rm;
-            prCandidate = {
-              exerciseName: ex.name,
-              weight: effWeight,
-              reps: s.reps,
-              e1rm,
-            };
-          }
-        });
+    const topPR = SetCalculator.findSessionTopPR({
+      exercises,
+      userBodyweightKg,
+      preferredUnit: unit,
     });
 
     const finalizedSession: WorkoutSession = {
@@ -413,119 +484,64 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
       supersetGroups,
       userBodyweightKg,
       preferredUnit: unit,
-      totalTonnageKg: calculateTonnage(exercises),
-      totalSets: calculateTotalCompletedSets(exercises),
-      prAchieved: prCandidate,
+      totalTonnageKg: totalTonnage,
+      totalSets: totalCompletedSets,
+      prAchieved: {
+        exerciseName: topPR.exerciseName,
+        weight: topPR.weight,
+        reps: topPR.reps,
+        e1rm: topPR.e1rm,
+      },
     };
 
+    WorkoutDraftCacheService.syncCompoundPRsFromSession(finalizedSession);
     onFinishSession(finalizedSession);
   };
 
-  const totalTonnage = calculateTonnage(exercises);
-  const totalCompletedSets = calculateTotalCompletedSets(exercises);
-
-  const muscleSetsMap: Partial<Record<MuscleGroup, number>> = {};
-  exercises.forEach((ex) => {
-    const done = ex.sets.filter((s) => s.completed).length;
-    if (done > 0) {
-      if (ex.primaryMuscle) {
-        muscleSetsMap[ex.primaryMuscle] = (muscleSetsMap[ex.primaryMuscle] || 0) + done;
-      }
-      if (ex.secondaryMuscles) {
-        ex.secondaryMuscles.forEach((sec) => {
-          muscleSetsMap[sec] = (muscleSetsMap[sec] || 0) + done * 0.5;
-        });
-      }
-    }
-  });
-
   return (
-    <div className="flex flex-col min-h-full bg-[#17161A] text-[#F2F1ED] w-full">
+    <div className="flex flex-col min-h-full bg-zinc-950 text-zinc-100 w-full">
       {/* 1. Header (Cancel, Screen 3.2 "Đang Tập" + Live Title + Stopwatch, Finish CTA) */}
-      <header className="sticky top-0 z-30 bg-[#1F1E24] border-b border-[#35343C] w-full">
+      <header className="sticky top-0 z-30 bg-zinc-950/85 backdrop-blur-xl border-b border-white/10 w-full">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
           <button
             onClick={() => setShowCancelModal(true)}
-            className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] text-[#9C9AA3] hover:text-[#F2F1ED] hover:bg-[#28272E] transition flex items-center justify-center shrink-0"
+            className="w-10 h-10 rounded-2xl text-zinc-400 hover:text-zinc-100 bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all duration-200 flex items-center justify-center shrink-0 active:scale-[0.96]"
             title="Tùy chọn thoát"
             aria-label="Thoát buổi tập"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[1.75]" />
           </button>
 
-          <div className="flex-1 text-center min-w-0 flex flex-col gap-1">
-            <div className="flex items-center justify-center gap-2 text-[11px] font-semibold text-[#4CAF6D]">
-              <span className="w-2 h-2 rounded-full bg-[#4CAF6D] animate-pulse" />
-              <span>Đang Tập · Isar Local Cache</span>
+          <div className="flex-1 text-center min-w-0 flex flex-col gap-0.5">
+            <div className="flex items-center justify-center gap-2 text-[11px] font-semibold text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20 animate-pulse" />
+              <span>Đang Tập</span>
             </div>
             <input
               type="text"
               value={sessionTitle}
               onChange={(e) => setSessionTitle(e.target.value)}
-              className="w-full text-center bg-transparent font-display font-bold text-[17px] sm:text-[18px] text-[#F2F1ED] focus:outline-hidden border-b border-transparent focus:border-[#E4483C] truncate"
+              className="w-full text-center bg-transparent font-display font-bold text-base sm:text-lg text-zinc-100 focus:outline-none border-b border-transparent focus:border-[#E4483C] truncate tracking-tight"
               placeholder="Tên buổi tập..."
             />
-            <div className="flex items-center justify-center gap-2 text-[13px] text-[#E4483C] font-display tabular-nums font-semibold">
-              <Clock className="w-4 h-4" />
-              <span>{formatTimer(durationSeconds)}</span>
+            <div className="flex items-center justify-center gap-1.5 text-xs text-[#E4483C] font-display tabular-nums font-semibold">
+              <Clock className="w-3.5 h-3.5 stroke-[1.75]" />
+              <span>{TelemetryParser.formatStopwatch(durationSeconds)}</span>
             </div>
           </div>
 
           <button
             onClick={handleFinish}
-            className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] active:bg-[#C23629] text-[#F2F1ED] font-semibold text-[14px] transition shrink-0 flex items-center justify-center"
+            className="apple-btn-primary min-h-[42px] px-5 py-2 text-xs sm:text-sm font-semibold shrink-0"
           >
             Hoàn thành
           </button>
         </div>
       </header>
 
-      {/* 2. Scrollable Exercise Cards Body - 16px/24px screen margin (px-4 sm:px-6), 24px section gap */}
+      {/* 2. Scrollable Exercise Cards Body */}
       <div className="flex-1 px-4 sm:px-6 pt-6 pb-36 max-w-3xl mx-auto w-full flex flex-col gap-6">
-        {/* RPE Plate-Code Legend & Crash Recovery Simulation Bar */}
-        <section className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[12px] text-[#9C9AA3]">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-medium text-[#F2F1ED]">Mã màu RPE:</span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PLATE_CODE_COLORS.green }} />
-              <span>1–4 Nhẹ</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PLATE_CODE_COLORS.yellow }} />
-              <span>5–6 Vừa</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PLATE_CODE_COLORS.blue }} />
-              <span>7–8 Nặng</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PLATE_CODE_COLORS.red }} />
-              <span>9–10 Tối đa</span>
-            </span>
-          </div>
-
-          {onSimulateCrash && (
-            <button
-              type="button"
-              onClick={() =>
-                onSimulateCrash({
-                  ...session,
-                  title: sessionTitle,
-                  durationSeconds,
-                  exercises,
-                  totalTonnageKg: calculateTonnage(exercises),
-                  totalSets: calculateTotalCompletedSets(exercises),
-                })
-              }
-              className="min-h-[40px] px-3 py-1.5 rounded-[12px] bg-[#28272E] hover:bg-[#35343C] border border-[#E0B93D]/40 text-[#E0B93D] font-semibold text-[12px] transition flex items-center justify-center gap-1.5 shrink-0 active:scale-95"
-              title="Giả lập ứng dụng bị đóng đột ngột để kiểm tra tính năng Phục hồi buổi tập (Crash Recovery)"
-            >
-              <span>⚡ Giả lập đóng đột ngột (Crash)</span>
-            </button>
-          )}
-        </section>
-
-        {/* Engine Controls: User Bodyweight, Lossless KG<->LBS Toggle, Superset Builder, and Test Suite */}
+        {/* Engine Controls: User Bodyweight, Lossless KG<->LBS Toggle, and Superset Builder */}
         <WorkoutEngineToolbar
           userBodyweightKg={userBodyweightKg}
           unit={unit}
@@ -543,16 +559,16 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
 
         {/* Scenario 2: Blank Slate - Empty Exercise List with Centered "➕ Thêm bài tập" Button */}
         {exercises.length === 0 ? (
-          <section className="flex-1 min-h-[48dvh] rounded-[24px] bg-[#1F1E24]/70 border border-dashed border-[#35343C] p-6 sm:p-10 flex flex-col items-center justify-center text-center gap-5 my-auto">
-            <div className="w-16 h-16 rounded-[20px] bg-[#E4483C]/15 border border-[#E4483C]/40 flex items-center justify-center text-[#E4483C]">
-              <Dumbbell className="w-8 h-8" />
+          <section className="flex-1 min-h-[48dvh] rounded-3xl apple-card border border-dashed border-white/15 p-6 sm:p-10 flex flex-col items-center justify-center text-center gap-5 my-auto">
+            <div className="apple-icon-badge-accent w-16 h-16 rounded-2xl">
+              <Dumbbell className="w-8 h-8 stroke-[1.75]" />
             </div>
 
-            <div className="flex flex-col gap-2 max-w-md">
-              <h2 className="font-display font-bold text-[20px] text-[#F2F1ED]">
+            <div className="flex flex-col gap-1.5 max-w-md">
+              <h2 className="font-display font-bold text-lg text-zinc-100 tracking-tight">
                 Buổi tập trống · Chưa có bài tập nào
               </h2>
-              <p className="text-[14px] text-[#9C9AA3] leading-relaxed">
+              <p className="text-xs text-zinc-400 leading-relaxed">
                 Nhấn vào nút bên dưới để chọn bài tập đầu tiên từ thư viện hơn 800 bài tập chuẩn quốc tế.
               </p>
             </div>
@@ -560,7 +576,7 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
             <button
               type="button"
               onClick={() => setShowAddExerciseModal(true)}
-              className="min-h-[56px] px-8 py-4 rounded-[18px] bg-[#E4483C] hover:bg-[#C23629] active:bg-[#C23629] text-[#F2F1ED] font-display font-bold text-[16px] shadow-xl shadow-[#E4483C]/20 transition flex items-center justify-center gap-2.5 active:scale-95"
+              className="apple-btn-accent min-h-[48px] px-8 py-3 text-sm font-bold shadow-lg"
             >
               <span>➕ Thêm bài tập</span>
             </button>
@@ -637,13 +653,13 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                 return (
                   <section
                     key={exercise.id}
-                    className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4"
+                    className="apple-card p-5 sm:p-6 flex flex-col gap-4"
                   >
                     {/* Exercise Header */}
-                    <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-[#35343C]">
-                      <div className="flex flex-col gap-2 min-w-0">
+                    <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-white/10">
+                      <div className="flex flex-col gap-1.5 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-display font-semibold text-[16px] text-[#F2F1ED] leading-snug truncate">
+                          <h3 className="font-display font-semibold text-base text-zinc-100 leading-snug truncate tracking-tight">
                             {exercise.name}
                           </h3>
                           <select
@@ -652,7 +668,7 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                             onChange={(e) =>
                               handleChangeExerciseType(exIdx, e.target.value as ExerciseType)
                             }
-                            className="bg-[#28272E] border border-[#35343C] rounded-[10px] px-2.5 py-1 text-[11px] font-medium text-[#F2F1ED] focus:outline-hidden focus:border-[#E4483C]"
+                            className="bg-black/40 border border-white/10 rounded-xl px-2.5 py-1 text-[11px] font-semibold text-zinc-200 focus:outline-none focus:border-[#E4483C]"
                           >
                             {EXERCISE_TYPES.map((t) => (
                               <option key={t} value={t}>
@@ -661,13 +677,13 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                             ))}
                           </select>
                         </div>
-                        <div className="flex items-center flex-wrap gap-2 text-[12px] text-[#9C9AA3]">
+                        <div className="flex items-center flex-wrap gap-2 text-xs text-zinc-400">
                           <span>{exercise.vietnameseName}</span>
-                          <span aria-hidden="true">·</span>
+                          <span aria-hidden="true" className="text-zinc-600">·</span>
                           <span>{EXERCISE_TYPE_META[exType].formulaHint}</span>
                           {bestE1rmSet && bestE1rmSet.e1rm > 0 && (
                             <>
-                              <span aria-hidden="true">·</span>
+                              <span aria-hidden="true" className="text-zinc-600">·</span>
                               <span className="font-display tabular-nums text-[#E4483C] font-semibold flex items-center gap-1.5">
                                 <Flame className="w-3.5 h-3.5 fill-[#E4483C]" />
                                 <span>
@@ -689,26 +705,26 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                             setPlateCalcWeight(topSet ? topSet.weight : 100);
                             setTargetSetForCalc({ exIdx, setIdx: 0 });
                           }}
-                          className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] text-[13px] font-medium border border-[#35343C] transition flex items-center gap-2"
+                          className="apple-btn-secondary min-h-[40px] px-3.5 py-1.5 text-xs font-semibold gap-1.5"
                           title="Tính bánh tạ đòn"
                         >
-                          <Disc className="w-4 h-4 text-[#E4483C]" />
+                          <Disc className="w-3.5 h-3.5 text-[#E4483C] stroke-[1.75]" />
                           <span>Bánh tạ</span>
                         </button>
                         <button
                           onClick={() => handleDeleteExercise(exIdx)}
-                          className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] bg-[#28272E] hover:bg-[#E4483C]/20 text-[#9C9AA3] hover:text-[#E4483C] border border-[#35343C] transition flex items-center justify-center"
+                          className="w-10 h-10 rounded-2xl bg-white/[0.04] hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 border border-white/10 transition-all duration-200 flex items-center justify-center active:scale-[0.96]"
                           title="Xóa bài tập này"
                           aria-label={`Xóa bài tập ${exercise.name}`}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4 stroke-[1.75]" />
                         </button>
                       </div>
                     </div>
 
                     {/* Set Table Columns Header */}
-                    <div className="flex flex-col gap-4">
-                      <div className="grid grid-cols-12 gap-2 text-[12px] font-medium text-[#9C9AA3] px-2 text-center items-center">
+                    <div className="flex flex-col gap-3">
+                      <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-zinc-400 px-2 text-center items-center">
                         <div className="col-span-1">Hiệp</div>
                         <div className="col-span-2 text-left pl-2 truncate">Trước</div>
                         <div className="col-span-2">
@@ -743,18 +759,18 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                       </div>
 
                       {/* Add Set CTA */}
-                      <div className="pt-4 border-t border-[#35343C] flex items-center justify-between gap-4">
+                      <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-4">
                         <button
                           onClick={() => handleAddSet(exIdx)}
-                          className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#E4483C] text-[14px] font-semibold border border-[#35343C] transition flex items-center gap-2"
+                          className="apple-btn-secondary min-h-[38px] px-3.5 py-1.5 text-xs font-semibold gap-1.5 text-[#E4483C]"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3.5 h-3.5 stroke-[1.75]" />
                           <span>Thêm hiệp mới</span>
                         </button>
 
-                        <div className="text-[13px] text-[#9C9AA3] font-display tabular-nums">
+                        <div className="text-xs text-zinc-400 font-display tabular-nums">
                           Tổng tải:{' '}
-                          <span className="font-semibold text-[#F2F1ED]">
+                          <span className="font-semibold text-zinc-200">
                             {UnitConverter.formatPlateWeight(exCompletedVolumeKg, unit)}
                           </span>
                         </div>
@@ -768,17 +784,158 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
             {/* Add Exercise CTA Button */}
             <button
               onClick={() => setShowAddExerciseModal(true)}
-              className="w-full min-h-[48px] p-4 rounded-[20px] bg-[#1F1E24] hover:bg-[#28272E] border border-[#35343C] text-[#F2F1ED] font-semibold text-[15px] transition flex items-center justify-center gap-2"
+              className="w-full min-h-[48px] p-4 rounded-2xl apple-card-interactive text-zinc-200 font-semibold text-sm transition flex items-center justify-center gap-2 active:scale-[0.99]"
             >
-              <Plus className="w-5 h-5 text-[#E4483C]" />
+              <Plus className="w-5 h-5 text-[#E4483C] stroke-[1.75]" />
               <span>➕ Thêm bài tập</span>
             </button>
+
+            {/* End-of-Logger Compound Lifts E1RM Summary View */}
+            <section
+              aria-label="Tổng kết E1RM Compound"
+              className="apple-card p-5 sm:p-6 flex flex-col gap-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-white/10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="apple-icon-badge-accent">
+                    <Trophy className="w-5 h-5 stroke-[1.75]" />
+                  </div>
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <h3 className="font-display font-bold text-base text-zinc-100 tracking-tight truncate">
+                      Tổng kết 1RM ước tính (E1RM) · 3 Bài Compound
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Tự động tính từ hiệp nặng nhất buổi tập & đồng bộ sang Kỷ lục cá nhân
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className={`px-3 py-1.5 rounded-full border text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 ${
+                    syncedCompoundCount > 0
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : 'bg-white/[0.04] text-zinc-400 border-white/10'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 stroke-[1.75]" />
+                  <span>
+                    {syncedCompoundCount > 0
+                      ? 'Đã đồng bộ Kỷ lục cá nhân'
+                      : 'Chờ hiệp tập Compound'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Top 3 Compound Lifts Grid: Bench Press, Back Squat, Deadlift */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {topThreeCompoundLifts.map((lift) => {
+                  const formattedE1rm =
+                    lift.hasSessionSet && lift.e1rmKg > 0
+                      ? UnitConverter.formatPlateWeight(lift.e1rmKg, unit, { step: 0.1 })
+                      : `-- ${unit}`;
+                  const formattedHeaviestWeight =
+                    lift.hasSessionSet && lift.heaviestWeightKg > 0
+                      ? UnitConverter.formatPlateWeight(lift.heaviestWeightKg, unit, { step: 0.5 })
+                      : '';
+
+                  return (
+                    <div
+                      key={lift.key}
+                      className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col justify-between gap-3 relative overflow-hidden"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-xs font-medium text-zinc-400 truncate">
+                            {lift.vietnameseName}
+                          </span>
+                          <h4 className="font-display font-bold text-sm text-zinc-100 truncate tracking-tight">
+                            {lift.name}
+                          </h4>
+                        </div>
+                        <span className="text-xl shrink-0">{lift.icon}</span>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-xs text-zinc-400">E1RM</span>
+                          <span
+                            className="font-display tabular-nums text-lg font-bold tracking-tight"
+                            style={{
+                              color: lift.hasSessionSet ? '#F4F4F5' : '#71717A',
+                            }}
+                          >
+                            {formattedE1rm}
+                          </span>
+                        </div>
+
+                        <div
+                          className="h-1 w-full rounded-full opacity-85"
+                          style={{ backgroundColor: lift.color }}
+                        />
+
+                        {lift.hasSessionSet ? (
+                          <div className="pt-1 flex flex-col gap-1">
+                            <span className="text-xs text-zinc-400 font-display tabular-nums truncate">
+                              Hiệp nặng nhất (H{lift.setNumber}):{' '}
+                              <strong className="text-zinc-200">
+                                {formattedHeaviestWeight} × {lift.reps}
+                              </strong>
+                              {lift.rpe ? ` @ RPE ${lift.rpe}` : ''}
+                            </span>
+                            <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              <span>Đã đồng bộ sang Kỷ lục cá nhân</span>
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="pt-1 flex items-center justify-between gap-2">
+                            <span className="text-xs text-zinc-500">
+                              Chưa có trong buổi tập
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickAddCompoundLift(lift.key)}
+                              className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-200 border border-white/10 text-xs font-semibold transition active:scale-[0.96] shrink-0"
+                            >
+                              + Thêm {lift.shortName}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer: Total SBD E1RM & Finish Sync CTA */}
+              <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                  <span>Tổng E1RM 3 bài Compound (SBD):</span>
+                  <strong className="font-display tabular-nums text-sm text-[#E4483C] font-bold">
+                    {UnitConverter.formatPlateWeight(
+                      topThreeCompoundLifts.reduce((acc, l) => acc + (l.e1rmKg || 0), 0),
+                      unit,
+                      { step: 0.1 }
+                    )}
+                  </strong>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleFinish}
+                  className="apple-btn-accent min-h-[38px] px-4 py-1.5 text-xs font-semibold gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4 stroke-[1.75]" />
+                  <span>Hoàn thành & Lưu kỷ lục</span>
+                </button>
+              </div>
+            </section>
           </>
         )}
       </div>
 
       {/* 3. Sticky Bottom Container (Rest Timer Drawer + Live Heatmap Summary) */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 w-full bg-[#1F1E24] border-t border-[#35343C]">
+      <div className="fixed bottom-0 left-0 right-0 z-40 w-full bg-zinc-950/85 backdrop-blur-xl border-t border-white/10">
         <div className="max-w-3xl mx-auto w-full flex flex-col gap-2 px-4 sm:px-6 py-4">
           {isRestTimerActive && restSecondsRemaining > 0 && (
             <RestTimerDrawer
@@ -791,30 +948,45 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
             />
           )}
 
-          <div className="flex items-center justify-between gap-4 py-2">
-            <div className="flex items-center gap-2 text-[13px]">
-              <span className="w-3 h-3 rounded-[14px] bg-[#E4483C]" />
-              <span className="text-[#9C9AA3]">Tổng tải:</span>
+          <div className="flex items-center justify-between gap-4 py-1">
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#E4483C]" />
+              <span className="text-zinc-400">Tổng tải:</span>
               <span className="font-display tabular-nums font-semibold text-[#E4483C]">
                 {UnitConverter.formatPlateWeight(totalTonnage, unit)}
               </span>
-              <span className="text-[#656470]" aria-hidden="true">·</span>
-              <span className="font-display tabular-nums text-[#F2F1ED]">
+              <span className="text-zinc-600" aria-hidden="true">·</span>
+              <span className="font-display tabular-nums text-zinc-200">
                 {totalCompletedSets} hiệp
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-[12px] text-[#9C9AA3] truncate">
+            <div className="flex items-center gap-2 text-xs text-zinc-400 truncate">
               {Object.entries(muscleSetsMap)
-                .slice(0, 2)
-                .map(([m, count], idx) => (
-                  <React.Fragment key={m}>
-                    {idx > 0 && <span aria-hidden="true">·</span>}
-                    <span>
-                      {m.replace('_', ' ')}: <strong className="text-[#F2F1ED] font-display tabular-nums">{count}s</strong>
-                    </span>
-                  </React.Fragment>
-                ))}
+                .slice(0, 3)
+                .map(([m, count], idx) => {
+                  const tierColor = getColorHexForVolume(count || 0);
+                  return (
+                    <React.Fragment key={m}>
+                      {idx > 0 && <span aria-hidden="true" className="text-zinc-700">·</span>}
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: tierColor }}
+                        />
+                        <span>
+                          {m.replace('_', ' ')}:{' '}
+                          <strong
+                            className="font-display tabular-nums"
+                            style={{ color: tierColor }}
+                          >
+                            {count}s
+                          </strong>
+                        </span>
+                      </span>
+                    </React.Fragment>
+                  );
+                })}
             </div>
           </div>
         </div>
@@ -850,32 +1022,11 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
 
         const rawMatches = ALL_RAW_EXERCISES.filter((item) => {
           const primaryGroup = item.primaryMuscles?.[0]
-            ? mapStringToMuscleGroup(item.primaryMuscles[0])
+            ? mapStringToMuscleGroup(item.primaryMuscles[0], item.name)
             : 'chest';
 
-          if (selectedMuscleCategory !== 'Tất cả') {
-            if (selectedMuscleCategory === 'Ngực' && primaryGroup !== 'chest') return false;
-            if (
-              selectedMuscleCategory === 'Lưng' &&
-              !['lats', 'upper_back', 'lower_back'].includes(primaryGroup)
-            )
-              return false;
-            if (
-              selectedMuscleCategory === 'Vai' &&
-              !['front_delts', 'side_delts', 'rear_delts'].includes(primaryGroup)
-            )
-              return false;
-            if (
-              selectedMuscleCategory === 'Tay' &&
-              !['biceps', 'triceps'].includes(primaryGroup)
-            )
-              return false;
-            if (
-              selectedMuscleCategory === 'Chân' &&
-              !['quads', 'glutes', 'calves', 'hamstrings'].includes(primaryGroup)
-            )
-              return false;
-            if (selectedMuscleCategory === 'Bụng' && primaryGroup !== 'abs') return false;
+          if (!matchesMuscleCategoryFilter(primaryGroup, selectedMuscleCategory)) {
+            return false;
           }
 
           if (exerciseSearch.trim()) {
@@ -890,15 +1041,17 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
         }).slice(0, 50);
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-xs">
-            <div className="bg-[#1F1E24] border border-[#35343C] rounded-[20px] w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md">
+            <div className="bg-zinc-950/95 backdrop-blur-2xl border border-white/10 rounded-3xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
               {/* Header */}
-              <div className="p-4 border-b border-[#35343C] flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <Dumbbell className="w-5 h-5 text-[#E4483C]" />
+              <div className="p-5 border-b border-white/10 flex items-center justify-between gap-4 shrink-0">
+                <div className="flex items-center gap-3.5">
+                  <div className="apple-icon-badge-accent">
+                    <Dumbbell className="w-5 h-5 stroke-[1.75]" />
+                  </div>
                   <div>
-                    <h4 className="font-display font-bold text-[18px] text-[#F2F1ED]">Thư viện bài tập</h4>
-                    <span className="text-[12px] text-[#9C9AA3] font-display tabular-nums">
+                    <h4 className="font-display font-bold text-base text-zinc-100 tracking-tight">Thư viện bài tập</h4>
+                    <span className="text-xs text-zinc-400 font-display tabular-nums">
                       {ALL_RAW_EXERCISES.length} bài tập chuẩn quốc tế
                     </span>
                   </div>
@@ -908,66 +1061,68 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                     setShowAddExerciseModal(false);
                     setExerciseSearch('');
                   }}
-                  className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] text-[#9C9AA3] hover:text-[#F2F1ED] hover:bg-[#28272E] flex items-center justify-center transition"
+                  className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition active:scale-[0.96]"
                   aria-label="Đóng thư viện bài tập"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 stroke-[1.75]" />
                 </button>
               </div>
 
               {/* 1. Top Search Bar */}
-              <div className="p-4 border-b border-[#35343C]">
+              <div className="p-4 border-b border-white/10 shrink-0">
                 <div className="relative">
-                  <Search className="w-4 h-4 text-[#9C9AA3] absolute left-4 top-4" />
+                  <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[1.75]" />
                   <input
                     type="text"
                     value={exerciseSearch}
                     onChange={(e) => setExerciseSearch(e.target.value)}
                     placeholder="Tìm theo tên tiếng Việt hoặc tiếng Anh (vd: Bench Press, Squat)..."
-                    className="w-full min-h-[48px] bg-[#28272E] border border-[#35343C] rounded-[14px] pl-10 pr-10 py-2 text-[14px] text-[#F2F1ED] placeholder-[#656470] focus:outline-hidden focus:border-[#E4483C]"
+                    className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#E4483C] transition-colors"
                   />
                   {exerciseSearch && (
                     <button
                       onClick={() => setExerciseSearch('')}
-                      className="absolute right-2 top-0 min-w-[48px] min-h-[48px] flex items-center justify-center text-[#9C9AA3] hover:text-[#F2F1ED]"
+                      className="w-7 h-7 rounded-lg bg-white/10 border border-white/10 absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100 flex items-center justify-center active:scale-[0.96]"
+                      title="Xóa tìm kiếm"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3.5 h-3.5 stroke-[1.75]" />
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* 2. Horizontal Category Filter Chips (8px gap, 48px touch target) */}
-              <div className="px-4 py-2 border-b border-[#35343C] flex items-center gap-2 overflow-x-auto no-scrollbar">
+              {/* 2. Body Part / Muscle Category Filter Chips */}
+              <div className="px-4 py-2.5 border-b border-white/10 flex flex-nowrap items-center gap-2 overflow-x-auto scroll-touch shrink-0">
                 {MUSCLE_FILTER_CHIPS.map((cat) => {
                   const isSelected = selectedMuscleCategory === cat;
                   return (
                     <button
                       key={cat}
+                      type="button"
                       onClick={() => setSelectedMuscleCategory(cat)}
-                      className={`min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] text-[13px] font-medium whitespace-nowrap transition-all ${
+                      className={`min-h-[34px] px-3.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-[0.98] ${
                         isSelected
-                          ? 'bg-[#E4483C] text-[#F2F1ED]'
-                          : 'bg-[#28272E] text-[#9C9AA3] hover:text-[#F2F1ED] border border-[#35343C]'
+                          ? 'bg-white text-zinc-950 font-bold shadow-xs'
+                          : 'bg-white/[0.04] text-zinc-400 hover:text-white border border-white/10'
                       }`}
                     >
-                      {cat}
+                      <span>{cat}</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* 3. Vertical List View of Exercise Cards (16px gap) */}
-              <div className="p-4 overflow-y-auto flex flex-col gap-4 flex-1">
+              {/* 3. Vertical List View of Exercise Cards */}
+              <div className="p-4 overflow-y-auto flex flex-col gap-2.5 flex-1">
                 {rawMatches.length === 0 ? (
-                  <div className="py-12 text-center text-[#9C9AA3] text-[14px] flex flex-col gap-2">
-                    <p className="font-semibold text-[#F2F1ED]">Không tìm thấy bài tập phù hợp</p>
-                    <p className="text-[12px]">Hãy thử tìm với từ khóa khác hoặc xóa bộ lọc nhóm cơ.</p>
+                  <div className="py-12 text-center text-zinc-400 text-sm flex flex-col gap-2">
+                    <p className="font-semibold text-zinc-100">Không tìm thấy bài tập phù hợp</p>
+                    <p className="text-xs">Hãy thử tìm với từ khóa khác hoặc xóa bộ lọc nhóm cơ.</p>
                   </div>
                 ) : (
                   rawMatches.map((item, idx) => {
                     const primaryGroup = item.primaryMuscles?.[0]
-                      ? mapStringToMuscleGroup(item.primaryMuscles[0])
+                      ? mapStringToMuscleGroup(item.primaryMuscles[0], item.name)
                       : 'chest';
                     const eq = item.equipment || 'bodyweight';
 
@@ -975,10 +1130,9 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                       <button
                         key={`${item.name}-${idx}`}
                         onClick={() => {
-                          const primaryMuscle = item.primaryMuscles?.[0]
-                            ? mapStringToMuscleGroup(item.primaryMuscles[0])
-                            : 'chest';
-                          const secondaryMuscles = (item.secondaryMuscles || []).map(mapStringToMuscleGroup);
+                          const resolved = resolveExerciseMusclesFromJson(item.name);
+                          const primaryMuscle = resolved.primaryMuscles[0] || primaryGroup;
+                          const secondaryMuscles = resolved.secondaryMuscles;
 
                           const newEx: WorkoutExercise = {
                             id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1010,26 +1164,28 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                             totalSets: calculateTotalCompletedSets(updated),
                           });
                         }}
-                        className="w-full text-left p-4 rounded-[20px] bg-[#28272E] hover:bg-[#35343C] border border-[#35343C] hover:border-[#E4483C] transition flex items-center justify-between gap-4 group"
+                        className="w-full text-left p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-[#E4483C]/50 transition-all duration-200 flex items-center justify-between gap-4 group active:scale-[0.99]"
                       >
-                        <div className="flex-1 min-w-0 flex flex-col gap-2">
-                          <h5 className="font-display font-semibold text-[16px] text-[#F2F1ED] group-hover:text-[#E4483C] truncate">
+                        <div className="flex-1 min-w-0 flex flex-col gap-1">
+                          <h5 className="font-display font-semibold text-sm text-zinc-100 group-hover:text-[#E4483C] truncate tracking-tight">
                             {item.name}
                           </h5>
                           {item.nameVn && item.nameVn !== item.name && (
-                            <span className="text-[13px] text-[#9C9AA3] block truncate">
+                            <span className="text-xs text-zinc-400 block truncate">
                               {item.nameVn}
                             </span>
                           )}
-                          <div className="flex items-center gap-2 text-[12px] text-[#9C9AA3]">
+                          <div className="flex items-center gap-2 text-xs text-zinc-500">
                             <span>{eq}</span>
-                            <span aria-hidden="true">·</span>
-                            <span className="text-[#E4483C]">{primaryGroup}</span>
+                            <span aria-hidden="true" className="text-zinc-700">·</span>
+                            <span className="text-[#E4483C]">
+                              {getMuscleGroupLabel(primaryGroup, item.primaryMuscles?.[0])}
+                            </span>
                           </div>
                         </div>
 
-                        <div className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] bg-[#1F1E24] flex items-center justify-center text-[#9C9AA3] group-hover:text-[#E4483C] border border-[#35343C] transition shrink-0">
-                          <Plus className="w-5 h-5" />
+                        <div className="w-10 h-10 rounded-xl bg-white/[0.05] group-hover:bg-[#E4483C] flex items-center justify-center text-zinc-300 group-hover:text-white border border-white/10 transition shrink-0">
+                          <Plus className="w-4 h-4 stroke-[1.75]" />
                         </div>
                       </button>
                     );
@@ -1043,29 +1199,31 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
 
       {/* 4. Cancel Session Options Modal */}
       {showCancelModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
-          <div className="w-full max-w-sm bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
+          <div className="w-full max-w-sm bg-zinc-950/95 backdrop-blur-2xl rounded-3xl border border-white/10 p-6 flex flex-col gap-4 shadow-2xl">
             <div className="flex items-center justify-between gap-4">
-              <h3 className="font-display font-bold text-[18px] text-[#F2F1ED]">Thoát buổi tập?</h3>
+              <h3 className="font-display font-bold text-base text-zinc-100 tracking-tight">Thoát buổi tập?</h3>
               <button
                 onClick={() => setShowCancelModal(false)}
-                className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] text-[#9C9AA3] hover:text-[#F2F1ED] hover:bg-[#28272E] flex items-center justify-center transition"
+                className="w-8 h-8 rounded-xl bg-white/10 border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition active:scale-[0.96]"
+                title="Đóng"
+                aria-label="Đóng"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 stroke-[1.75]" />
               </button>
             </div>
 
-            <p className="text-[14px] text-[#9C9AA3] leading-relaxed">
+            <p className="text-xs text-zinc-400 leading-relaxed">
               Bạn muốn tạm quay lại màn hình chính (tiến độ vẫn được lưu tự động) hay hủy bỏ hoàn toàn buổi tập này?
             </p>
 
-            <div className="flex flex-col gap-2 pt-2">
+            <div className="flex flex-col gap-2.5 pt-2">
               <button
                 onClick={() => {
                   setShowCancelModal(false);
                   onCancelSession();
                 }}
-                className="w-full min-h-[48px] py-2 px-4 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] font-semibold text-[14px] flex items-center justify-center gap-2 border border-[#35343C] transition"
+                className="apple-btn-secondary w-full min-h-[44px] py-2 px-4 text-xs font-semibold"
               >
                 <span>Quay về màn hình chính</span>
               </button>
@@ -1079,7 +1237,7 @@ export const ActiveLoggerScreen: React.FC<ActiveLoggerScreenProps> = ({
                     onCancelSession();
                   }
                 }}
-                className="w-full min-h-[48px] py-2 px-4 rounded-[14px] bg-[#E4483C]/15 hover:bg-[#E4483C]/25 text-[#E4483C] font-semibold text-[14px] flex items-center justify-center gap-2 border border-[#E4483C] transition"
+                className="w-full min-h-[44px] py-2 px-4 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-semibold text-xs transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 <span>Hủy bỏ buổi tập</span>
               </button>

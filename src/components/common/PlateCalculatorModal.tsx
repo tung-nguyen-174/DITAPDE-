@@ -50,28 +50,30 @@ export const PlateCalculatorModal: React.FC<PlateCalculatorModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6 bg-[#17161A]/85 backdrop-blur-md">
-      <div className="bg-[#1F1E24] border border-[#35343C] rounded-[20px] w-full max-w-md overflow-hidden flex flex-col gap-6 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md">
+      <div className="bg-zinc-950/95 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden flex flex-col gap-6 p-6 shadow-2xl backdrop-blur-2xl text-zinc-100">
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#35343C]">
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <Disc className="w-5 h-5 text-[#E4483C] stroke-[1.5]" />
-            <h3 className="font-display font-semibold text-[17px] tracking-tight text-[#F2F1ED]">
+            <div className="apple-icon-badge-accent">
+              <Disc className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <h3 className="font-display font-semibold text-lg tracking-tight text-zinc-100">
               Tính bánh tạ đòn
             </h3>
           </div>
           <button
             onClick={onClose}
             aria-label="Đóng máy tính bánh tạ"
-            className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] text-[#9C9AA3] hover:text-[#F2F1ED] hover:bg-[#28272E] flex items-center justify-center transition-all duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-[#656470]"
+            className="w-10 h-10 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400"
           >
-            <X className="w-5 h-5 stroke-[1.5]" />
+            <X className="w-5 h-5 stroke-[1.75]" />
           </button>
         </div>
 
         {/* Target Weight Controls */}
         <div className="flex flex-col items-center gap-4">
-          <span className="text-[12.5px] font-medium text-[#9C9AA3]">
+          <span className="text-xs font-medium text-zinc-400">
             Tổng tải trọng mục tiêu
           </span>
 
@@ -79,16 +81,16 @@ export const PlateCalculatorModal: React.FC<PlateCalculatorModalProps> = ({
             <button
               onClick={() => adjustWeight(-5)}
               aria-label="Giảm 5 kg"
-              className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] border border-[#35343C] flex items-center justify-center transition-all duration-200 ease-in-out hover:scale-[1.02] focus:outline-hidden focus:ring-2 focus:ring-[#656470]"
+              className="apple-btn-secondary w-12 h-12 rounded-2xl text-zinc-100 flex items-center justify-center"
             >
-              <Minus className="w-5 h-5 stroke-[1.5]" />
+              <Minus className="w-5 h-5 stroke-[1.75]" />
             </button>
 
             <div className="text-center px-3">
-              <span className="font-display tabular-nums text-[36px] font-semibold tracking-tight text-[#E4483C]">
+              <span className="font-display tabular-nums text-4xl font-bold tracking-tight text-[#E4483C]">
                 {targetWeight.toFixed(1)}
               </span>
-              <span className="font-display text-[16px] font-semibold text-[#9C9AA3] ml-2">
+              <span className="font-display text-base font-semibold text-zinc-400 ml-2">
                 kg
               </span>
             </div>
@@ -96,22 +98,22 @@ export const PlateCalculatorModal: React.FC<PlateCalculatorModalProps> = ({
             <button
               onClick={() => adjustWeight(5)}
               aria-label="Tăng 5 kg"
-              className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] border border-[#35343C] flex items-center justify-center transition-all duration-200 ease-in-out hover:scale-[1.02] focus:outline-hidden focus:ring-2 focus:ring-[#656470]"
+              className="apple-btn-secondary w-12 h-12 rounded-2xl text-zinc-100 flex items-center justify-center"
             >
-              <Plus className="w-5 h-5 stroke-[1.5]" />
+              <Plus className="w-5 h-5 stroke-[1.75]" />
             </button>
           </div>
 
           {/* Quick presets */}
-          <div className="flex flex-wrap justify-center gap-2.5">
+          <div className="flex flex-wrap justify-center gap-2">
             {[60, 80, 100, 120, 140].map((w) => (
               <button
                 key={w}
                 onClick={() => setTargetWeight(w)}
-                className={`min-h-[48px] min-w-[48px] px-3.5 py-2 text-[12.5px] font-semibold rounded-[14px] border transition-all duration-200 ease-in-out font-display tabular-nums focus:outline-hidden focus:ring-2 focus:ring-[#656470] ${
+                className={`min-h-[40px] px-3.5 py-1.5 text-xs font-semibold rounded-2xl border transition-all duration-200 ease-out font-display tabular-nums active:scale-[0.98] ${
                   targetWeight === w
-                    ? 'bg-[#E4483C] text-white border-[#E4483C] shadow-sm'
-                    : 'bg-[#28272E] text-[#F2F1ED] border-[#35343C] hover:bg-[#35343C]'
+                    ? 'apple-btn-primary shadow-xs'
+                    : 'apple-btn-secondary'
                 }`}
               >
                 {w} kg
@@ -119,35 +121,35 @@ export const PlateCalculatorModal: React.FC<PlateCalculatorModalProps> = ({
             ))}
           </div>
 
-          <div className="flex items-center gap-3 text-[12.5px] text-[#9C9AA3]">
+          <div className="flex items-center gap-3 text-xs text-zinc-400">
             <span>Đòn tạ Olympic:</span>
             <button
               onClick={() => setBarWeight(barWeight === 20 ? 15 : 20)}
-              className="min-h-[48px] min-w-[48px] px-4 py-2 bg-[#28272E] hover:bg-[#35343C] rounded-[14px] text-[#F2F1ED] font-semibold font-display tabular-nums border border-[#35343C] transition-all duration-200 ease-in-out"
+              className="apple-btn-secondary px-3.5 py-1.5 rounded-xl font-semibold font-display tabular-nums text-xs"
             >
               {barWeight} kg
             </button>
           </div>
 
           {/* Barbell Visual Representation */}
-          <div className="w-full bg-[#17161A] p-4 rounded-[14px] border border-[#35343C] flex flex-col items-center gap-3">
-            <span className="text-[12.5px] font-medium text-[#9C9AA3]">
+          <div className="w-full bg-zinc-900/60 p-4 rounded-2xl border border-white/10 flex flex-col items-center gap-3">
+            <span className="text-xs font-medium text-zinc-400">
               Mô phỏng 1 bên đòn tạ (Chuẩn màu Plate-Code):
             </span>
 
             <div className="flex items-center justify-center gap-1 h-24 w-full relative">
-              <div className="w-8 h-4 bg-[#656470] rounded-l-[14px]" />
-              <div className="w-4 h-16 bg-[#9C9AA3]" />
+              <div className="w-8 h-4 bg-zinc-700 rounded-l-lg" />
+              <div className="w-4 h-16 bg-zinc-500" />
 
-              <div className="flex items-center gap-1.5 bg-[#28272E] p-2.5 rounded-r-[14px] min-w-36 h-24 justify-start border border-[#35343C]">
+              <div className="flex items-center gap-1.5 bg-zinc-950/80 p-2.5 rounded-r-xl min-w-36 h-24 justify-start border border-white/10">
                 {plates.length === 0 ? (
-                  <span className="text-[12.5px] text-[#656470] mx-auto">Chỉ đòn không</span>
+                  <span className="text-xs text-zinc-500 mx-auto">Chỉ đòn không</span>
                 ) : (
                   plates.flatMap(({ weight, count }) =>
                     Array.from({ length: count }).map((_, i) => (
                       <div
                         key={`${weight}-${i}`}
-                        className={`w-5 ${PLATE_COLORS[weight]?.height || 'h-16'} rounded-[4px] flex items-center justify-center font-display text-[10px] font-bold border border-[#17161A]`}
+                        className={`w-5 ${PLATE_COLORS[weight]?.height || 'h-16'} rounded-sm flex items-center justify-center font-display text-[10px] font-bold border border-black/40`}
                         style={{
                           backgroundColor: PLATE_COLORS[weight]?.bg || '#28272E',
                           color: PLATE_COLORS[weight]?.text || '#F2F1ED',
@@ -163,17 +165,17 @@ export const PlateCalculatorModal: React.FC<PlateCalculatorModalProps> = ({
             </div>
 
             {/* List breakdown */}
-            <div className="w-full pt-3 border-t border-[#35343C] flex flex-wrap gap-3 justify-center">
+            <div className="w-full pt-3 border-t border-white/10 flex flex-wrap gap-3 justify-center">
               {plates.length === 0 ? (
-                <span className="text-[12.5px] text-[#9C9AA3]">Không cần lắp bánh</span>
+                <span className="text-xs text-zinc-400">Không cần lắp bánh</span>
               ) : (
                 plates.map(({ weight, count }) => (
                   <div
                     key={weight}
-                    className="flex items-center gap-2 text-[12.5px] font-semibold font-display tabular-nums text-[#F2F1ED]"
+                    className="flex items-center gap-2 text-xs font-semibold font-display tabular-nums text-zinc-200"
                   >
                     <span
-                      className="w-3 h-3 rounded-full"
+                      className="w-2.5 h-2.5 rounded-full"
                       style={{ backgroundColor: PLATE_COLORS[weight]?.bg }}
                     />
                     <span>
@@ -187,10 +189,10 @@ export const PlateCalculatorModal: React.FC<PlateCalculatorModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex gap-3 pt-3 border-t border-[#35343C]">
+        <div className="flex gap-3 pt-3 border-t border-white/10">
           <button
             onClick={onClose}
-            className="flex-1 min-h-[48px] py-3 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] font-semibold text-[15px] border border-[#35343C] transition-all duration-200 ease-in-out"
+            className="apple-btn-secondary flex-1 min-h-[44px] py-2.5 font-medium text-sm"
           >
             Đóng
           </button>
@@ -200,7 +202,7 @@ export const PlateCalculatorModal: React.FC<PlateCalculatorModalProps> = ({
                 onApply(targetWeight);
                 onClose();
               }}
-              className="flex-1 min-h-[48px] py-3 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] active:scale-95 text-white font-semibold text-[15px] transition-all duration-200 ease-in-out hover:scale-[1.01] shadow-sm"
+              className="apple-btn-primary flex-1 min-h-[44px] py-2.5 font-semibold text-sm"
             >
               Áp dụng ({targetWeight} kg)
             </button>

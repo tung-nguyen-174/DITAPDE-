@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Flame, AlertCircle } from 'lucide-react';
 import { ExerciseSet, WorkoutExercise } from '../../types/gym';
-import { getRpePlateColor, PLATE_CODE_COLORS } from '../../utils/fitnessCalculations';
+import {
+  getRpePlateColor,
+  getRpePlateLabel,
+  PLATE_CODE_COLORS,
+} from '../../utils/fitnessCalculations';
 import {
   ExerciseType,
   UserBiometrics,
@@ -36,7 +40,7 @@ interface ValidatedSetRowProps {
   onToggleComplete: (exIdx: number, setIdx: number) => void;
 }
 
-export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
+export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = React.memo(({
   set,
   exIdx,
   setIdx,
@@ -240,7 +244,7 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
       )}
 
       <div
-        className={`grid grid-cols-12 gap-2 items-center py-2.5 px-3 rounded-[14px] border transition-all ${
+        className={`flex flex-col gap-2.5 py-2.5 px-3 rounded-[14px] border transition-all ${
           activeError
             ? 'bg-[#E4483C]/10 border-[#E4483C]'
             : isChecked
@@ -252,6 +256,7 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
             : 'bg-[#17161A] border-[#35343C]'
         }`}
       >
+        <div className="grid grid-cols-12 gap-2 items-center">
         {/* 1. Set Number / Station Badge */}
         <div className="col-span-1 flex items-center justify-center">
           <span
@@ -301,16 +306,16 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
         <div className="col-span-2 flex justify-center">
           {exType === 'BODYWEIGHT_ONLY' ? (
             <div
-              className="w-full min-h-[48px] px-1.5 py-1.5 flex flex-col items-center justify-center rounded-[14px] bg-[#28272E]/70 border border-[#35343C] text-center"
+              className="w-full min-h-[48px] px-1.5 py-1.5 flex flex-col items-center justify-center rounded-xl bg-black/30 border border-white/10 text-center"
               title={`Trọng lượng cơ thể × ${alphaFactor} = ${UnitConverter.formatPlateWeight(
                 effectiveWeightKg,
                 unit
               )}`}
             >
-              <span className="font-display tabular-nums text-[12px] font-semibold text-[#F2F1ED]">
+              <span className="font-display tabular-nums text-xs font-semibold text-zinc-100">
                 BW×{alphaFactor}
               </span>
-              <span className="font-display tabular-nums text-[10px] text-[#9C9AA3]">
+              <span className="font-display tabular-nums text-[10px] text-zinc-400">
                 {UnitConverter.formatPlateWeight(effectiveWeightKg, unit)}
               </span>
             </div>
@@ -318,8 +323,8 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
             <div className="relative w-full">
               {(exType === 'WEIGHTED_BODYWEIGHT' || exType === 'ASSISTED_BODYWEIGHT') && (
                 <span
-                  className={`absolute left-2 top-1/2 -translate-y-1/2 font-display text-[12px] font-bold pointer-events-none ${
-                    exType === 'WEIGHTED_BODYWEIGHT' ? 'text-[#4CAF6D]' : 'text-[#3E8EDE]'
+                  className={`absolute left-2 top-1/2 -translate-y-1/2 font-display text-xs font-bold pointer-events-none ${
+                    exType === 'WEIGHTED_BODYWEIGHT' ? 'text-emerald-400' : 'text-blue-400'
                   }`}
                 >
                   {exType === 'WEIGHTED_BODYWEIGHT' ? '+' : '-'}
@@ -341,10 +346,10 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
                   exType === 'WEIGHTED_BODYWEIGHT' || exType === 'ASSISTED_BODYWEIGHT'
                     ? 'pl-5 pr-1.5'
                     : 'px-2'
-                } py-2 text-center font-display tabular-nums text-[14px] font-medium rounded-[14px] bg-[#28272E] text-[#F2F1ED] border transition focus:outline-hidden ${
+                } py-2 text-center font-display tabular-nums text-sm font-medium rounded-xl bg-black/40 text-zinc-100 border transition focus:outline-none ${
                   weightError
                     ? 'border-[#E4483C] text-[#E4483C]'
-                    : 'border-[#35343C] focus:border-[#E4483C]'
+                    : 'border-white/10 focus:border-[#E4483C]'
                 }`}
               />
             </div>
@@ -364,10 +369,10 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
             onFocus={(e) => e.target.select()}
             onChange={(e) => handleRepsChange(e.target.value)}
             onBlur={handleRepsBlur}
-            className={`w-full min-h-[48px] px-2 py-2 text-center font-display tabular-nums text-[14px] font-medium rounded-[14px] bg-[#28272E] text-[#F2F1ED] border transition focus:outline-hidden ${
+            className={`w-full min-h-[48px] px-2 py-2 text-center font-display tabular-nums text-sm font-medium rounded-xl bg-black/40 text-zinc-100 border transition focus:outline-none ${
               repsError
                 ? 'border-[#E4483C] text-[#E4483C]'
-                : 'border-[#35343C] focus:border-[#E4483C]'
+                : 'border-white/10 focus:border-[#E4483C]'
             }`}
           />
         </div>
@@ -390,19 +395,19 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
               borderColor: rpeError ? PLATE_CODE_COLORS.red : rpeColor,
               color: rpeError ? PLATE_CODE_COLORS.red : rpeColor,
             }}
-            className="w-full min-h-[48px] px-2 py-2 text-center font-display tabular-nums text-[14px] font-semibold rounded-[14px] bg-[#28272E] border transition focus:outline-hidden"
+            className="w-full min-h-[48px] px-2 py-2 text-center font-display tabular-nums text-sm font-semibold rounded-xl bg-black/40 border transition focus:outline-none"
           />
         </div>
 
         {/* 6. Calculated E1RM Display */}
         <div className="col-span-1 flex items-center justify-center">
           <span
-            className={`font-display tabular-nums text-[12px] flex items-center gap-1 ${
+            className={`font-display tabular-nums text-xs flex items-center gap-1 ${
               displayE1rm > 0
                 ? isTopE1RM
                   ? 'text-[#E4483C] font-semibold'
-                  : 'text-[#9C9AA3]'
-                : 'text-[#656470]'
+                  : 'text-zinc-400'
+                : 'text-zinc-600'
             }`}
             title={`Ước tính 1RM: ${displayE1rm > 0 ? `${displayE1rm} ${unit}` : `0 ${unit}`}`}
           >
@@ -421,19 +426,75 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
             }}
             disabled={Boolean(activeError)}
             aria-label={`Đánh dấu hoàn thành hiệp ${set.setNumber}`}
-            className={`min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] flex items-center justify-center transition-all active:scale-95 ${
+            className={`min-w-[48px] min-h-[48px] w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-[0.96] shadow-xs border ${
               activeError
-                ? 'bg-[#E4483C]/20 text-[#E4483C] cursor-not-allowed border border-[#E4483C]'
+                ? 'bg-[#E4483C]/20 text-[#E4483C] cursor-not-allowed border-[#E4483C]'
                 : isChecked
-                ? 'bg-[#4CAF6D] text-[#17161A]'
+                ? 'bg-emerald-500 text-white border-emerald-400/50 shadow-sm shadow-emerald-500/20'
                 : isActiveFocusStep
-                ? 'bg-[#E0B93D]/20 text-[#E0B93D] hover:bg-[#E0B93D]/30 border border-[#E0B93D]'
-                : 'bg-[#28272E] text-[#9C9AA3] hover:text-[#F2F1ED] border border-[#35343C]'
+                ? 'bg-[#E0B93D]/20 text-[#E0B93D] hover:bg-[#E0B93D]/30 border-[#E0B93D]/60'
+                : 'bg-white/[0.05] hover:bg-white/[0.1] text-zinc-400 hover:text-white border-white/10'
             }`}
           >
-            <Check className="w-5 h-5 stroke-[2.5]" />
+            <Check className="w-5 h-5 stroke-[2.25]" />
           </button>
         </div>
+        </div>
+
+        {/* 8. RPE (Rate of Perceived Exertion) 1–10 Interactive Slider */}
+        {(() => {
+          const numericRpe = Math.min(10, Math.max(1, Number(set.rpe) || 8));
+          const rpePercent = ((numericRpe - 1) / 9) * 100;
+          const rir = Math.max(0, Number((10 - numericRpe).toFixed(1)));
+
+          return (
+            <div className="pt-2 border-t border-[#35343C]/60 flex flex-col gap-1.5 px-1">
+              <div className="flex items-center justify-between gap-2 text-[11px]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-display font-semibold text-[#9C9AA3]">
+                    Mức gắng sức (RPE 1–10):
+                  </span>
+                  <span
+                    className="px-2 py-0.5 rounded-[6px] font-display font-bold tabular-nums text-[11px]"
+                    style={{
+                      backgroundColor: `${rpeColor}20`,
+                      color: rpeColor,
+                    }}
+                  >
+                    RPE {numericRpe} · {getRpePlateLabel(numericRpe)}
+                  </span>
+                </div>
+
+                <span className="font-display tabular-nums text-[11px] text-[#9C9AA3] shrink-0">
+                  {numericRpe >= 6 ? `Dự trữ: ${rir} lần (RIR)` : 'Khởi động / Nhẹ'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="font-display tabular-nums text-[10px] font-semibold text-[#656470] w-3 text-left shrink-0">
+                  1
+                </span>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={0.5}
+                  value={numericRpe}
+                  aria-label={`Thanh trượt RPE từ 1 đến 10 cho hiệp ${set.setNumber}`}
+                  onChange={(e) => handleRpeChange(e.target.value)}
+                  style={{
+                    background: `linear-gradient(to right, ${rpeColor} 0%, ${rpeColor} ${rpePercent}%, #28272E ${rpePercent}%, #28272E 100%)`,
+                    accentColor: rpeColor,
+                  }}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer focus:outline-hidden"
+                />
+                <span className="font-display tabular-nums text-[10px] font-semibold text-[#656470] w-4 text-right shrink-0">
+                  10
+                </span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Telemetry Sanity Validation Error Banner */}
@@ -466,7 +527,7 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
                 setRpeError(null);
               }
             }}
-            className="min-h-[48px] px-3 py-2 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] text-[#F2F1ED] text-[12px] font-semibold shrink-0 transition"
+            className="apple-btn-primary min-h-[44px] px-4 py-2 text-xs font-semibold shrink-0"
           >
             Đặt về tối đa
           </button>
@@ -474,4 +535,4 @@ export const ValidatedSetRow: React.FC<ValidatedSetRowProps> = ({
       )}
     </div>
   );
-};
+});

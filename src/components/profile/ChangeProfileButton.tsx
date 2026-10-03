@@ -139,10 +139,10 @@ export const ChangeProfileButton: React.FC<ChangeProfileButtonProps> = ({
           disabled={isUploading}
           title="Change your profile picture"
           aria-label="Change your profile"
-          className={`min-h-[32px] px-2.5 py-1 rounded-[10px] border text-[11px] font-semibold tracking-tight transition-all duration-200 ease-in-out flex items-center gap-1.5 whitespace-nowrap shrink-0 active:scale-95 focus:outline-hidden focus:ring-2 focus:ring-[#E4483C]/50 ${
+          className={`apple-btn-secondary min-h-[32px] px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
             justUpdated
-              ? 'bg-[#4CAF6D]/15 border-[#4CAF6D]/60 text-[#4CAF6D]'
-              : 'bg-[#28272E] hover:bg-[#35343C] border-[#35343C] hover:border-[#E4483C]/60 text-[#F2F1ED]'
+              ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400'
+              : ''
           }`}
         >
           {isUploading ? (
@@ -152,7 +152,7 @@ export const ChangeProfileButton: React.FC<ChangeProfileButtonProps> = ({
             </>
           ) : justUpdated ? (
             <>
-              <Check className="w-3.5 h-3.5 text-[#4CAF6D] stroke-[2]" />
+              <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2]" />
               <span>Đã đổi ảnh</span>
             </>
           ) : (
@@ -172,7 +172,7 @@ export const ChangeProfileButton: React.FC<ChangeProfileButtonProps> = ({
             }}
             title="Khôi phục ảnh mặc định"
             aria-label="Reset profile picture"
-            className="min-h-[32px] min-w-[32px] p-1.5 rounded-[10px] bg-[#28272E]/70 hover:bg-[#35343C] border border-[#35343C] text-[#9C9AA3] hover:text-[#F2F1ED] transition-all duration-200 flex items-center justify-center active:scale-95"
+            className="apple-btn-secondary min-h-[32px] min-w-[32px] p-1.5 rounded-xl text-zinc-400 hover:text-zinc-100 flex items-center justify-center"
           >
             <RotateCcw className="w-3 h-3 stroke-[1.75]" />
           </button>

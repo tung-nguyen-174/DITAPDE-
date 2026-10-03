@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send, MessageSquare } from 'lucide-react';
 import { FeedPost } from '../../types/gym';
+import { formatCommentTimestamp } from '../../utils/postTimestamp';
 
 interface CommentModalProps {
   post: FeedPost;
@@ -76,7 +77,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
 
   const bottomSheetOverlay = (
     <div
-      className="fixed inset-0 z-[120] bg-zinc-950/75 backdrop-blur-sm"
+      className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-md"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -88,17 +89,17 @@ export const CommentModal: React.FC<CommentModalProps> = ({
           height: sheetMaxHeight,
           maxHeight: sheetMaxHeight,
         }}
-        className="fixed inset-x-0 bottom-0 z-[121] mx-auto w-full max-w-2xl backdrop-blur-md bg-zinc-900/95 border-t border-x border-zinc-800 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
+        className="fixed inset-x-0 bottom-0 z-[121] mx-auto w-full max-w-2xl backdrop-blur-2xl bg-zinc-950/95 border-t border-x border-white/10 rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Bottom-Sheet Drag Handle + Header */}
-        <div className="shrink-0 border-b border-zinc-800 px-6 pt-3 pb-4 flex flex-col gap-3">
-          <div className="w-10 h-1.5 rounded-full bg-zinc-700 mx-auto" />
+        <div className="shrink-0 border-b border-white/10 px-6 pt-3 pb-4 flex flex-col gap-3">
+          <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto" />
 
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0">
-                <MessageSquare className="w-5 h-5 text-emerald-400 stroke-[1.5]" />
+              <div className="apple-icon-badge-accent shrink-0">
+                <MessageSquare className="w-5 h-5 stroke-[1.75]" />
               </div>
               <div className="min-w-0 flex flex-col gap-0.5">
                 <h3 className="font-display font-bold tracking-tight text-lg text-zinc-100 truncate">
@@ -112,9 +113,9 @@ export const CommentModal: React.FC<CommentModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Đóng bình luận"
-              className="min-w-[40px] min-h-[40px] w-10 h-10 rounded-xl bg-zinc-950 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500 shrink-0"
+              className="w-10 h-10 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 shrink-0"
             >
-              <X className="w-5 h-5 stroke-[1.5]" />
+              <X className="w-5 h-5 stroke-[1.75]" />
             </button>
           </div>
         </div>
@@ -126,8 +127,8 @@ export const CommentModal: React.FC<CommentModalProps> = ({
         >
           {comments.length === 0 ? (
             <div className="py-10 text-center text-zinc-400 flex flex-col items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-zinc-400">
-                <MessageSquare className="w-5 h-5 stroke-[1.5]" />
+              <div className="apple-icon-badge-accent">
+                <MessageSquare className="w-5 h-5 stroke-[1.75]" />
               </div>
               <p className="font-display font-bold tracking-tight text-zinc-100 text-base">
                 Chưa có bình luận nào
@@ -143,22 +144,22 @@ export const CommentModal: React.FC<CommentModalProps> = ({
                   src={comment.userAvatar}
                   alt={comment.userName}
                   referrerPolicy="no-referrer"
-                  className="w-10 h-10 rounded-xl object-cover border border-zinc-800 shrink-0 mt-1"
+                  className="w-10 h-10 rounded-2xl object-cover border border-white/10 shrink-0 mt-1"
                 />
-                <div className="flex-1 min-w-0 bg-zinc-950/70 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-1.5">
+                <div className="flex-1 min-w-0 bg-zinc-950/60 border border-white/10 rounded-2xl p-4 flex flex-col gap-1.5 shadow-xs">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-display font-bold tracking-tight text-sm text-zinc-100 truncate">
                         {comment.userName}
                       </span>
                       {comment.userBadge && (
-                        <span className="text-xs text-emerald-400 shrink-0">
+                        <span className="text-xs text-[#E4483C] font-medium shrink-0">
                           · {comment.userBadge}
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-zinc-400 shrink-0">
-                      {comment.timestamp}
+                    <span className="text-xs font-display tabular-nums text-zinc-400 shrink-0">
+                      {formatCommentTimestamp(comment)}
                     </span>
                   </div>
                   <p className="text-sm text-zinc-300 leading-relaxed break-words">
@@ -176,18 +177,18 @@ export const CommentModal: React.FC<CommentModalProps> = ({
         style={{
           bottom: keyboardOffset > 0 ? `${keyboardOffset}px` : '0px',
         }}
-        className="fixed bottom-0 inset-x-0 z-[125] mx-auto w-full max-w-2xl backdrop-blur-md bg-zinc-900/95 border-t border-x border-zinc-800 pb-safe shadow-2xl"
+        className="fixed bottom-0 inset-x-0 z-[125] mx-auto w-full max-w-2xl backdrop-blur-2xl bg-zinc-950/95 border-t border-x border-white/10 pb-safe shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Quick Emoji Strip */}
-        <div className="px-6 py-2.5 bg-zinc-950/70 border-b border-zinc-800 flex items-center gap-2.5 overflow-x-auto no-scrollbar">
+        <div className="px-6 py-2.5 bg-zinc-950/70 border-b border-white/10 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <span className="text-xs text-zinc-400 shrink-0">Nhanh:</span>
           {QUICK_EMOJIS.map((emoji) => (
             <button
               key={emoji}
               type="button"
               onClick={() => handleAddEmoji(emoji)}
-              className="min-w-[40px] min-h-[40px] w-10 h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800/60 border border-zinc-800 text-base flex items-center justify-center transition-all duration-200 shrink-0 active:scale-95"
+              className="apple-btn-secondary min-w-[36px] min-h-[36px] w-9 h-9 text-base flex items-center justify-center shrink-0"
             >
               {emoji}
             </button>
@@ -206,7 +207,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({
             }
             alt="Người dùng hiện tại"
             referrerPolicy="no-referrer"
-            className="hidden sm:block w-11 h-11 rounded-xl object-cover border border-zinc-800 shrink-0"
+            className="hidden sm:block w-10 h-10 rounded-2xl object-cover border border-white/10 shrink-0"
           />
           <input
             ref={inputRef}
@@ -221,14 +222,14 @@ export const CommentModal: React.FC<CommentModalProps> = ({
               }, 150);
             }}
             placeholder="Viết bình luận, lời khen hoặc mẹo tập..."
-            className="flex-1 min-w-0 min-h-[44px] bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 transition-all duration-200"
+            className="apple-input flex-1 min-w-0 min-h-[44px] px-4 py-2 text-sm"
           />
           <button
             type="submit"
             disabled={!inputText.trim()}
-            className="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-zinc-950 text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200 shrink-0 active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            className="apple-btn-primary min-h-[44px] px-5 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
           >
-            <Send className="w-4 h-4 stroke-[1.5] shrink-0" />
+            <Send className="w-4 h-4 stroke-[1.75] shrink-0" />
             <span>Gửi</span>
           </button>
         </form>

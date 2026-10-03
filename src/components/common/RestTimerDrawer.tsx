@@ -19,16 +19,16 @@ export const RestTimerDrawer: React.FC<RestTimerDrawerProps> = ({
   };
 
   return (
-    <div className="w-full bg-zinc-900/90 backdrop-blur-md border border-emerald-500/40 rounded-xl p-4 flex items-center justify-between gap-4 z-40 shadow-2xl">
+    <div className="w-full bg-zinc-950/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4 z-40 shadow-xl shadow-black/30">
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
-          <Timer className="w-5 h-5 stroke-[1.5]" />
+        <div className="apple-icon-badge-accent shrink-0">
+          <Timer className="w-5 h-5 stroke-[1.75]" />
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[12px] font-normal text-zinc-400 block">
+          <span className="text-xs font-medium text-zinc-400 block">
             Nghỉ giữa hiệp
           </span>
-          <span className="font-display tabular-nums text-[20px] font-bold tracking-tight text-emerald-400 block leading-none">
+          <span className="font-display tabular-nums text-xl font-bold tracking-tight text-[#E4483C] block leading-none">
             {formatTime(secondsRemaining)}
           </span>
         </div>
@@ -37,17 +37,17 @@ export const RestTimerDrawer: React.FC<RestTimerDrawerProps> = ({
       <div className="flex items-center gap-2.5 shrink-0">
         <button
           onClick={onAdd30s}
-          className="min-h-[44px] min-w-[48px] px-3.5 py-2.5 rounded-xl bg-zinc-800/60 hover:bg-zinc-800 text-zinc-100 text-[13px] font-semibold border border-zinc-800 transition-all duration-200 ease-in-out hover:scale-[1.02] flex items-center gap-1.5 focus:outline-hidden focus:ring-2 focus:ring-zinc-500"
+          className="apple-btn-secondary min-h-[40px] px-3.5 py-2 text-xs font-semibold flex items-center gap-1.5"
         >
-          <Plus className="w-4 h-4 text-emerald-400 stroke-[1.5]" />
-          <span className="font-display tabular-nums">30s</span>
+          <Plus className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />
+          <span className="font-display tabular-nums">+30s</span>
         </button>
 
         <button
           onClick={onSkip}
-          className="min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] active:scale-95 text-white text-[13px] font-semibold transition-all duration-200 ease-in-out hover:scale-[1.02] flex items-center gap-1.5 shadow-sm focus:outline-hidden focus:ring-2 focus:ring-zinc-500"
+          className="apple-btn-primary min-h-[40px] px-4 py-2 text-xs font-semibold flex items-center gap-1.5"
         >
-          <FastForward className="w-4 h-4 stroke-[1.5]" />
+          <FastForward className="w-4 h-4 stroke-[1.75]" />
           <span>Bỏ qua</span>
         </button>
       </div>

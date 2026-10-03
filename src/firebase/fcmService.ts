@@ -1,7 +1,7 @@
 // src/firebase/fcmService.ts
 
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, arrayUnion } from 'firebase/firestore';
 import app, { db } from './config';
 import { handleFirestoreError, OperationType } from './errorHandler';
 
@@ -64,11 +64,15 @@ export async function registerAndSyncWebFcmToken(userId: string): Promise<string
   // Persist into /users/{userId} as an fcmTokens array (and fcmToken for single-token compatibility)
   const userRef = doc(db, 'users', userId);
   try {
-    await updateDoc(userRef, {
-      fcmTokens: arrayUnion(resolvedToken),
-      fcmToken: resolvedToken,
-      lastTokenUpdate: new Date().toISOString(),
-    });
+    await setDoc(
+      userRef,
+      {
+        fcmTokens: arrayUnion(resolvedToken),
+        fcmToken: resolvedToken,
+        lastTokenUpdate: new Date().toISOString(),
+      },
+      { merge: true }
+    );
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
   }

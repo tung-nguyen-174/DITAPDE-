@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/check_in_provider.dart';
 import '../widgets/flex_story_modal.dart';
+import '../widgets/muscle_heatmap.dart';
 
 class SummaryScreen extends StatefulWidget {
   final String workoutTitle;
   final int totalVolumeKg;
   final int totalSets;
   final int durationMinutes;
+  final Map<MuscleGroup, int>? setVolumeMap;
+  final Map<String, int>? completedSetsByExerciseName;
 
   const SummaryScreen({
     super.key,
@@ -17,6 +20,8 @@ class SummaryScreen extends StatefulWidget {
     this.totalVolumeKg = 6850,
     this.totalSets = 14,
     this.durationMinutes = 58,
+    this.setVolumeMap,
+    this.completedSetsByExerciseName,
   });
 
   @override
@@ -33,6 +38,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
     text: 'Buổi tập hôm nay quá đã! Anh em cùng phòng tập điểm danh đê!',
   );
 
+  Map<MuscleGroup, int> _resolvedVolumeMap = const {
+    MuscleGroup.chest: 7,
+    MuscleGroup.frontDelts: 4,
+    MuscleGroup.sideDelts: 3,
+    MuscleGroup.triceps: 5,
+    MuscleGroup.lats: 2,
+    MuscleGroup.upperBack: 2,
+    MuscleGroup.abs: 0,
+    MuscleGroup.quads: 0,
+    MuscleGroup.hamstrings: 0,
+    MuscleGroup.biceps: 0,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +58,35 @@ class _SummaryScreenState extends State<SummaryScreen> {
         context.read<CheckInProvider>().activeGymCheckIn?.name ??
             'California Fitness & Yoga Thanh Hóa';
     _locationController = TextEditingController(text: activeGymName);
+
+    if (widget.setVolumeMap != null && widget.setVolumeMap!.isNotEmpty) {
+      _resolvedVolumeMap = widget.setVolumeMap!;
+    } else {
+      _loadVolumeMapFromExercisesJson();
+    }
+  }
+
+  Future<void> _loadVolumeMapFromExercisesJson() async {
+    final defaultSessionExercises = widget.completedSetsByExerciseName ??
+        const {
+          'Barbell Bench Press': 4,
+          'Incline Dumbbell Press': 3,
+          'Triceps Pushdown - Rope Attachment': 3,
+          'Side Lateral Raise': 2,
+          'Wide-Grip Lat Pulldown': 2,
+        };
+    try {
+      final computed = await MuscleHeatmap.buildVolumeMapFromExercisesJson(
+        completedSetsByExerciseName: defaultSessionExercises,
+      );
+      if (mounted && computed.isNotEmpty) {
+        setState(() {
+          _resolvedVolumeMap = computed;
+        });
+      }
+    } catch (_) {
+      // Fallback to default volume map if asset bundle is unavailable in isolated test
+    }
   }
 
   @override
@@ -61,6 +108,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
   @override
   Widget build(BuildContext context) {
     final activeGym = context.watch<CheckInProvider>().activeGymCheckIn;
+    final activeVolumeMap = widget.setVolumeMap ?? _resolvedVolumeMap;
 
     return Scaffold(
       backgroundColor: _surfaceDark,
@@ -108,6 +156,50 @@ class _SummaryScreenState extends State<SummaryScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Muscle Heatmap Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _cardDark,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Bản đồ nhiệt cơ bắp',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Center(
+                  child: MuscleHeatmap(
+                    width: 240,
+                    height: 220,
+                    setVolumeMap: activeVolumeMap,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _buildLegendDot(const Color(0xFF334155), 'Nghỉ (0)'),
+                    _buildLegendDot(const Color(0xFFFBBF24), 'Nhẹ (1–3)'),
+                    _buildLegendDot(const Color(0xFFFB923C), 'Vừa (4–6)'),
+                    _buildLegendDot(const Color(0xFFEF4444), 'Cao (7+)'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Auto-filled Gym Location Field from CheckInProvider
           Container(
             padding: const EdgeInsets.all(16),
@@ -119,12 +211,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.location_on,
+                    Icon(Icons.location_on,
                         color: _primaryOrange, size: 18),
-                    const SizedBox(width: 8),
-                    const Text(
+                    SizedBox(width: 8),
+                    Text(
                       'Địa điểm Phòng Tập (Tự động điền từ Check-in)',
                       style: TextStyle(
                         color: Colors.white,
@@ -213,11 +305,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         '00:${widget.durationMinutes.toString().padLeft(2, '0')}:00',
                     prBadgeText: 'NEW PR: Squat 140kg × 3 reps!',
                     muscleSetCounts: {
-                      'Ngực': (widget.totalSets * 0.4).round(),
-                      'Lưng': (widget.totalSets * 0.35).round(),
-                      'Vai & Tay': widget.totalSets -
-                          (widget.totalSets * 0.4).round() -
-                          (widget.totalSets * 0.35).round(),
+                      'Ngực': activeVolumeMap[MuscleGroup.chest] ?? (widget.totalSets * 0.4).round(),
+                      'Lưng': (activeVolumeMap[MuscleGroup.lats] ?? 0) + (activeVolumeMap[MuscleGroup.upperBack] ?? 0),
+                      'Vai & Tay': (activeVolumeMap[MuscleGroup.frontDelts] ?? 0) +
+                          (activeVolumeMap[MuscleGroup.sideDelts] ?? 0) +
+                          (activeVolumeMap[MuscleGroup.triceps] ?? 0) +
+                          (activeVolumeMap[MuscleGroup.biceps] ?? 0),
                     },
                   ),
                 );
@@ -274,6 +367,27 @@ class _SummaryScreenState extends State<SummaryScreen> {
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLegendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
         ),
       ],
     );

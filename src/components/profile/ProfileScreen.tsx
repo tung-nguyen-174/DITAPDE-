@@ -44,6 +44,21 @@ import {
 import {
   GymLocationModel,
 } from '../../services/googlePlacesService';
+import {
+  WorkoutDraftCacheService,
+  Manual1RMRecord,
+} from '../../services/workoutDraftCacheService';
+import { calculateE1RM } from '../../utils/fitnessCalculations';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Cell,
+} from 'recharts';
 
 interface ProfileScreenProps {
   buddies?: GymBuddy[];
@@ -52,6 +67,7 @@ interface ProfileScreenProps {
   onSendNudge?: (buddyId: string, message: string) => boolean | void;
   onGoToFeed?: () => void;
   onGoToDiscover?: () => void;
+  onOpenLogger?: () => void;
   activeGymCheckIn?: GymLocationModel;
   savedRoutines?: RoutineModel[];
   onCreateCustomRoutine?: (title: string, exercises: RoutineExerciseModel[]) => void;
@@ -70,6 +86,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onSendNudge,
   onGoToFeed,
   onGoToDiscover,
+  onOpenLogger,
   activeGymCheckIn,
   savedRoutines,
   onCreateCustomRoutine,
@@ -213,12 +230,198 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     calves: 4,
   };
 
-  const PR_TROPHIES = [
-    { name: 'Bench Press', weight: '140 kg', type: '1RM ước tính', icon: '🏋️‍♂️', color: PLATE_CODE_COLORS.red },
-    { name: 'Back Squat', weight: '180 kg', type: '1RM tối đa', icon: '🦵', color: PLATE_CODE_COLORS.blue },
-    { name: 'Deadlift', weight: '220 kg', type: '1RM tối đa', icon: '⚡', color: PLATE_CODE_COLORS.yellow },
-    { name: 'Overhead Press', weight: '85 kg', type: '1RM tối đa', icon: '🥇', color: PLATE_CODE_COLORS.green },
-  ];
+  const CORE_PR_LIFTS = [
+    {
+      key: 'bench_press',
+      name: 'Bench Press',
+      shortLabel: 'Bench Press',
+      icon: '🏋️‍♂️',
+      color: PLATE_CODE_COLORS.red,
+      baselineStartKg: 92.5,
+      baselinePrevDate: '12/08/2026',
+      baselinePrKg: 112.5,
+      baselinePrDate: '19/09/2026',
+      keywords: ['bench press', 'barbell bench press', 'dumbbell bench press', 'đẩy ngực ngang'],
+    },
+    {
+      key: 'back_squat',
+      name: 'Back Squat',
+      shortLabel: 'Back Squat',
+      icon: '🦵',
+      color: PLATE_CODE_COLORS.blue,
+      baselineStartKg: 125,
+      baselinePrevDate: '05/08/2026',
+      baselinePrKg: 150,
+      baselinePrDate: '21/09/2026',
+      keywords: ['back squat', 'barbell back squat', 'barbell squat', 'squat', 'gánh tạ'],
+    },
+    {
+      key: 'deadlift',
+      name: 'Deadlift',
+      shortLabel: 'Deadlift',
+      icon: '⚡',
+      color: PLATE_CODE_COLORS.yellow,
+      baselineStartKg: 150,
+      baselinePrevDate: '18/08/2026',
+      baselinePrKg: 180,
+      baselinePrDate: '24/09/2026',
+      keywords: ['deadlift', 'barbell deadlift', 'conventional deadlift', 'sumo deadlift', 'romanian deadlift', 'kéo tạ'],
+    },
+    {
+      key: 'overhead_press',
+      name: 'Overhead Press',
+      shortLabel: 'Overhead Press',
+      icon: '🥇',
+      color: PLATE_CODE_COLORS.green,
+      baselineStartKg: 55,
+      baselinePrevDate: '10/08/2026',
+      baselinePrKg: 67.5,
+      baselinePrDate: '26/09/2026',
+      keywords: ['overhead press', 'overhead barbell press', 'military press', 'shoulder press', 'đẩy vai'],
+    },
+  ] as const;
+
+  const [manual1RMMap, setManual1RMMap] = useState<Record<string, Manual1RMRecord>>(() =>
+    WorkoutDraftCacheService.getManual1RMMap()
+  );
+  const [selectedLiftKey, setSelectedLiftKey] = useState<string | null>(null);
+  const [isEntering1RM, setIsEntering1RM] = useState<boolean>(false);
+  const [manualWeightInput, setManualWeightInput] = useState<string>('');
+
+  const prTrophies = useMemo(() => {
+    const syncedCompoundPRs = WorkoutDraftCacheService.getSyncedCompoundPRs();
+    const loggedHistory = WorkoutDraftCacheService.getUserLoggedHistory();
+    const draftSession = WorkoutDraftCacheService.getDraftSession();
+
+    return CORE_PR_LIFTS.map((lift) => {
+      let bestLoggerE1rmKg = 0;
+      let bestSetSummary = '';
+      let matchedExerciseName = '';
+
+      // 1. Check automatically synced Compound E1RMs from the Logger summary view
+      const syncedRecord = syncedCompoundPRs[lift.key];
+      if (syncedRecord && syncedRecord.e1rmKg > 0) {
+        bestLoggerE1rmKg = syncedRecord.e1rmKg;
+        bestSetSummary = `${syncedRecord.heaviestWeightKg}kg × ${syncedRecord.reps}${
+          syncedRecord.rpe ? ` @ RPE ${syncedRecord.rpe}` : ''
+        }`;
+        matchedExerciseName = syncedRecord.matchedExerciseName;
+      }
+
+      const checkSet = (weightKg: number, reps: number, rpe: number | undefined, exName: string) => {
+        if (weightKg <= 0 || reps <= 0) return;
+        const e1rm = calculateE1RM(weightKg, reps, rpe);
+        if (e1rm > bestLoggerE1rmKg) {
+          bestLoggerE1rmKg = e1rm;
+          bestSetSummary = `${weightKg}kg × ${reps}${rpe ? ` @ RPE ${rpe}` : ''}`;
+          matchedExerciseName = exName;
+        }
+      };
+
+      // 2. Check completed Logger sessions history
+      Object.entries(loggedHistory).forEach(([exKey, sets]) => {
+        const lower = exKey.toLowerCase();
+        if (lift.keywords.some((kw) => lower.includes(kw))) {
+          sets.forEach((s) => checkSet(s.weight, s.reps, s.rpe, exKey));
+        }
+      });
+
+      // 3. Check active/draft Logger session for completed sets
+      if (draftSession && Array.isArray(draftSession.exercises)) {
+        draftSession.exercises.forEach((ex) => {
+          const lowerName = `${ex.name} ${ex.vietnameseName || ''}`.toLowerCase();
+          if (lift.keywords.some((kw) => lowerName.includes(kw))) {
+            ex.sets
+              .filter((s) => s.completed && s.weight > 0 && s.reps > 0)
+              .forEach((s) => checkSet(s.weight, s.reps, s.rpe, ex.name));
+          }
+        });
+      }
+
+      const manualEntry = manual1RMMap[lift.key];
+      const hasLoggerData = bestLoggerE1rmKg > 0;
+      const hasManualData = Boolean(manualEntry && manualEntry.weightKg > 0);
+
+      let activeWeightKg = 0;
+      let typeLabel = 'Chưa có dữ liệu Logger';
+      let source: 'logger' | 'manual' | 'none' = 'none';
+
+      if (hasLoggerData && (!hasManualData || bestLoggerE1rmKg >= manualEntry.weightKg)) {
+        activeWeightKg = bestLoggerE1rmKg;
+        typeLabel = `1RM ước tính · ${bestSetSummary.split(' @')[0]}`;
+        source = 'logger';
+      } else if (hasManualData) {
+        activeWeightKg = manualEntry.weightKg;
+        typeLabel = '1RM tối đa · Đã nhập';
+        source = 'manual';
+      }
+
+      const displayWeightValue =
+        activeWeightKg > 0
+          ? unit === 'lbs'
+            ? `${Math.round(activeWeightKg * 2.20462 * 10) / 10} lbs`
+            : `${Math.round(activeWeightKg * 10) / 10} kg`
+          : '-- kg';
+
+      const prDate =
+        syncedRecord?.updatedAt ||
+        manualEntry?.updatedAt ||
+        lift.baselinePrDate;
+
+      const currentKgForChart = activeWeightKg > 0 ? activeWeightKg : lift.baselinePrKg;
+      const previousKgForChart =
+        activeWeightKg > 0
+          ? Math.round(Math.min(lift.baselineStartKg, activeWeightKg * 0.88) * 10) / 10
+          : lift.baselineStartKg;
+
+      const convertUnit = (valKg: number) =>
+        unit === 'lbs'
+          ? Math.round(valKg * 2.20462 * 10) / 10
+          : Math.round(valKg * 10) / 10;
+
+      return {
+        ...lift,
+        hasData: activeWeightKg > 0,
+        activeWeightKg,
+        weight: displayWeightValue,
+        type: typeLabel,
+        source,
+        bestSetSummary,
+        matchedExerciseName,
+        updatedAt: syncedRecord?.updatedAt || manualEntry?.updatedAt,
+        prDate,
+        previousDate: lift.baselinePrevDate,
+        previousWeightDisplay: convertUnit(previousKgForChart),
+        currentWeightDisplay: convertUnit(currentKgForChart),
+        gainDisplay: Math.round((convertUnit(currentKgForChart) - convertUnit(previousKgForChart)) * 10) / 10,
+      };
+    });
+  }, [manual1RMMap, unit]);
+
+  const handleOpen1RMInput = (liftKey: string, currentWeightKg: number) => {
+    setSelectedLiftKey(liftKey);
+    setIsEntering1RM(true);
+    if (currentWeightKg > 0) {
+      const val =
+        unit === 'lbs'
+          ? Math.round(currentWeightKg * 2.20462 * 10) / 10
+          : Math.round(currentWeightKg * 10) / 10;
+      setManualWeightInput(String(val));
+    } else {
+      setManualWeightInput('');
+    }
+  };
+
+  const handleSaveManual1RM = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLiftKey) return;
+    const parsed = parseFloat(manualWeightInput);
+    if (isNaN(parsed) || parsed <= 0) return;
+    const weightInKg = unit === 'lbs' ? parsed / 2.20462 : parsed;
+    const updated = WorkoutDraftCacheService.saveManual1RM(selectedLiftKey, weightInKg);
+    setManual1RMMap(updated);
+    setIsEntering1RM(false);
+  };
 
   const BADGES = [
     { title: 'Chuột Titan 100 tấn', icon: '🦾', date: 'T9/2026' },
@@ -265,44 +468,44 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const currentStreak = profile?.streakWeeks ?? 6;
 
   return (
-    <div className="flex flex-col px-4 sm:px-6 py-6 gap-6 max-w-3xl mx-auto w-full bg-[#17161A]">
+    <div className="flex flex-col px-4 sm:px-6 py-6 gap-6 max-w-3xl mx-auto w-full bg-zinc-950 text-zinc-100">
       {/* 0. Guest Banner if not signed in */}
       {!user && (
-        <section className="p-4 sm:p-6 rounded-[20px] bg-[#1F1E24] border border-[#E4483C] flex items-center justify-between gap-4">
+        <section className="p-6 rounded-3xl apple-card border border-[#E4483C]/40 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-[14px] bg-[#28272E] border border-[#35343C] flex items-center justify-center text-[#E4483C] shrink-0">
-              <Cloud className="w-5 h-5" />
+            <div className="apple-icon-badge-accent">
+              <Cloud className="w-5 h-5 stroke-[1.75]" />
             </div>
-            <div className="flex flex-col gap-2">
-              <h4 className="font-display text-[16px] font-semibold text-[#F2F1ED]">
+            <div className="flex flex-col gap-1">
+              <h4 className="font-display text-base font-bold tracking-tight text-zinc-100">
                 Chưa đăng nhập tài khoản
               </h4>
-              <p className="text-[12px] text-[#9C9AA3]">
+              <p className="text-xs text-zinc-400 font-normal">
                 Đăng nhập để đồng bộ hồ sơ, kỷ lục PR và lịch sử buổi tập.
               </p>
             </div>
           </div>
           <button
             onClick={openAuthModal}
-            className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] active:bg-[#C23629] text-[#F2F1ED] text-[14px] font-semibold transition shrink-0 flex items-center gap-2"
+            className="apple-btn-primary min-h-[44px] px-5 py-2 text-xs sm:text-sm shrink-0 flex items-center gap-2"
           >
-            <LogIn className="w-4 h-4" />
+            <LogIn className="w-4 h-4 stroke-[1.75]" />
             <span>Đăng nhập</span>
           </button>
         </section>
       )}
 
       {/* 1. Profile Header & Identity Card */}
-      <section className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4 pb-4 border-b border-[#35343C]">
+      <section className="apple-card p-6 flex flex-col gap-6">
+        <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <span className="font-display text-[13px] font-medium text-[#9C9AA3]">
+            <span className="font-display text-xs font-semibold text-zinc-400 tracking-tight">
               {currentHandle}
             </span>
             {user && (
-              <span className="text-[12px] text-[#4CAF6D] font-medium flex items-center gap-2">
+              <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
                 <span aria-hidden="true">·</span>
-                <span className="w-2 h-2 rounded-[14px] bg-[#4CAF6D]" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20" />
                 <span>Đã đồng bộ đám mây</span>
               </span>
             )}
@@ -311,20 +514,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {user && (
               <button
                 onClick={startEditing}
-                className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] text-[#9C9AA3] hover:text-[#F2F1ED] hover:bg-[#28272E] transition flex items-center justify-center"
+                className="w-10 h-10 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-zinc-300 hover:text-white transition-all duration-200 ease-out active:scale-[0.96] flex items-center justify-center"
                 title="Sửa hồ sơ"
                 aria-label="Sửa hồ sơ"
               >
-                <Edit3 className="w-5 h-5" />
+                <Edit3 className="w-4 h-4 stroke-[1.75]" />
               </button>
             )}
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] text-[#9C9AA3] hover:text-[#F2F1ED] hover:bg-[#28272E] transition flex items-center justify-center"
+              className="w-10 h-10 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-zinc-300 hover:text-white transition-all duration-200 ease-out active:scale-[0.96] flex items-center justify-center"
               title="Cài đặt & tài khoản"
               aria-label="Cài đặt"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4 stroke-[1.75]" />
             </button>
           </div>
         </div>
@@ -337,10 +540,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 src={currentAvatar}
                 alt="Hồ sơ vận động viên"
                 referrerPolicy="no-referrer"
-                className="w-16 h-16 rounded-[14px] object-cover border-2 border-[#E4483C] shrink-0"
+                className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E4483C] shadow-sm shrink-0"
               />
               <div className="flex flex-col gap-1.5">
-                <span className="text-[12px] text-[#9C9AA3]">Ảnh đại diện cá nhân</span>
+                <span className="text-xs text-zinc-400">Ảnh đại diện cá nhân</span>
                 <ChangeProfileButton
                   currentAvatar={currentAvatar}
                   hasCustomAvatar={Boolean(effectiveCustomAvatar)}
@@ -349,58 +552,58 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 />
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-[12px] text-[#9C9AA3] block">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400 block font-medium">
                 Tên hiển thị
               </label>
               <input
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="w-full min-h-[48px] bg-[#28272E] border border-[#35343C] rounded-[14px] px-4 py-2 text-[14px] text-[#F2F1ED] focus:outline-hidden focus:border-[#E4483C]"
+                className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-[12px] text-[#9C9AA3] block">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400 block font-medium">
                 Phòng tập thường trú
               </label>
               <input
                 type="text"
                 value={editGym}
                 onChange={(e) => setEditGym(e.target.value)}
-                className="w-full min-h-[48px] bg-[#28272E] border border-[#35343C] rounded-[14px] px-4 py-2 text-[14px] text-[#F2F1ED] focus:outline-hidden focus:border-[#E4483C]"
+                className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-[12px] text-[#9C9AA3] block">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400 block font-medium">
                 Tiểu sử
               </label>
               <textarea
                 value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
                 rows={2}
-                className="w-full bg-[#28272E] border border-[#35343C] rounded-[14px] p-4 text-[14px] text-[#F2F1ED] focus:outline-hidden focus:border-[#E4483C]"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-zinc-100 focus:outline-none focus:border-[#E4483C] transition-colors"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] text-[14px] font-medium border border-[#35343C] transition flex items-center gap-2"
+                className="apple-btn-secondary min-h-[42px] px-4 py-2 text-xs font-medium"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 stroke-[1.75]" />
                 <span>Hủy</span>
               </button>
               <button
                 type="button"
                 onClick={handleSaveProfile}
                 disabled={isSaving}
-                className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] active:bg-[#C23629] text-[#F2F1ED] text-[14px] font-semibold transition flex items-center gap-2 disabled:opacity-50"
+                className="apple-btn-primary min-h-[42px] px-5 py-2 text-xs font-semibold gap-2 disabled:opacity-50"
               >
                 {isSaving ? (
-                  <span className="w-4 h-4 border-2 border-[#F2F1ED]/30 border-t-[#F2F1ED] rounded-[14px] animate-spin" />
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <Save className="w-4 h-4" />
+                  <Save className="w-4 h-4 stroke-[1.75]" />
                 )}
                 <span>Lưu hồ sơ</span>
               </button>
@@ -413,13 +616,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 src={currentAvatar}
                 alt="Hồ sơ vận động viên"
                 referrerPolicy="no-referrer"
-                className="w-16 h-16 rounded-[14px] object-cover border-2 border-[#E4483C]"
+                className="w-16 h-16 rounded-2xl object-cover border-2 border-[#E4483C]/70 shadow-sm"
               />
             </div>
 
-            <div className="flex-1 min-w-0 flex flex-col gap-2">
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-display font-bold text-[18px] text-[#F2F1ED] truncate">
+                <h2 className="font-display font-bold text-lg text-zinc-100 truncate tracking-tight">
                   {currentDisplayName}
                 </h2>
                 <ChangeProfileButton
@@ -429,11 +632,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   onResetAvatar={handleResetAvatar}
                 />
               </div>
-              <p className="text-[12px] text-[#9C9AA3] flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-[#E4483C] shrink-0" />
+              <p className="text-xs text-zinc-400 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[#E4483C] stroke-[1.75] shrink-0" />
                 <span className="truncate">{currentGym}</span>
               </p>
-              <p className="text-[14px] text-[#F2F1ED] font-normal leading-relaxed">
+              <p className="text-sm text-zinc-300 font-normal leading-relaxed">
                 {currentBio}
               </p>
             </div>
@@ -441,60 +644,60 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         )}
 
         {/* Consistency Dashboard */}
-        <div className="pt-4 border-t border-[#35343C] grid grid-cols-2 gap-2 sm:gap-4 text-center">
-          <div className="p-4 rounded-[14px] bg-[#17161A] border border-[#35343C] flex flex-col gap-2">
-            <span className="text-[12px] text-[#9C9AA3] block">
+        <div className="pt-4 border-t border-white/10 grid grid-cols-2 gap-3 sm:gap-4 text-center">
+          <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-1.5">
+            <span className="text-xs text-zinc-400 block font-medium">
               Chuỗi tập đều đặn
             </span>
             <div className="flex items-center justify-center gap-2">
-              <Flame className="w-4 h-4 text-[#E0B93D] fill-[#E0B93D]" />
-              <span className="font-display tabular-nums text-[16px] font-semibold text-[#E0B93D]">
+              <Flame className="w-4 h-4 text-[#E0B93D] fill-[#E0B93D] stroke-[1.75]" />
+              <span className="font-display tabular-nums text-base font-bold text-[#E0B93D]">
                 {currentStreak} tuần
               </span>
             </div>
-            <span className="text-[12px] text-[#4CAF6D]">Thứ hạng: nhóm 5% dẫn đầu</span>
+            <span className="text-[11px] text-emerald-400 font-medium">Thứ hạng: nhóm 5% dẫn đầu</span>
           </div>
 
-          <div className="p-4 rounded-[14px] bg-[#17161A] border border-[#35343C] flex flex-col gap-2">
-            <span className="text-[12px] text-[#9C9AA3] block">
+          <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-1.5">
+            <span className="text-xs text-zinc-400 block font-medium">
               Mục tiêu tháng
             </span>
             <div className="flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-[#4CAF6D]" />
-              <span className="font-display tabular-nums text-[16px] font-semibold text-[#F2F1ED]">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 stroke-[1.75]" />
+              <span className="font-display tabular-nums text-base font-bold text-zinc-100">
                 14 / 16 buổi
               </span>
             </div>
-            <span className="text-[12px] text-[#9C9AA3]">Mục tiêu: 100 tấn</span>
+            <span className="text-[11px] text-zinc-400 font-medium">Mục tiêu: 100 tấn</span>
           </div>
         </div>
       </section>
 
       {/* Settings Panel Drawer if open */}
       {showSettings && (
-        <section className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4">
-          <h3 className="font-display font-bold text-[18px] text-[#F2F1ED]">
+        <section className="apple-card p-6 flex flex-col gap-5">
+          <h3 className="font-display font-bold text-lg text-zinc-100 tracking-tight">
             Tùy chọn & tài khoản
           </h3>
-          <div className="flex items-center justify-between gap-4 py-2 border-b border-[#35343C]">
-            <span className="text-[14px] text-[#F2F1ED]">Đơn vị trọng lượng</span>
-            <div className="flex bg-[#17161A] p-2 rounded-[14px] border border-[#35343C] gap-2">
+          <div className="flex items-center justify-between gap-4 py-2 border-b border-white/10">
+            <span className="text-sm text-zinc-200">Đơn vị trọng lượng</span>
+            <div className="apple-segmented-control">
               <button
                 onClick={() => setUnit('kg')}
-                className={`min-h-[48px] min-w-[48px] px-4 py-2 text-[13px] font-semibold rounded-[14px] transition font-display ${
+                className={`min-h-[36px] px-4 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 ease-out font-display active:scale-[0.98] ${
                   unit === 'kg'
-                    ? 'bg-[#E4483C] text-[#F2F1ED]'
-                    : 'text-[#9C9AA3] hover:text-[#F2F1ED]'
+                    ? 'bg-white/15 text-white border border-white/10 shadow-xs'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 kg
               </button>
               <button
                 onClick={() => setUnit('lbs')}
-                className={`min-h-[48px] min-w-[48px] px-4 py-2 text-[13px] font-semibold rounded-[14px] transition font-display ${
+                className={`min-h-[36px] px-4 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 ease-out font-display active:scale-[0.98] ${
                   unit === 'lbs'
-                    ? 'bg-[#E4483C] text-[#F2F1ED]'
-                    : 'text-[#9C9AA3] hover:text-[#F2F1ED]'
+                    ? 'bg-white/15 text-white border border-white/10 shadow-xs'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 lbs
@@ -503,23 +706,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
 
           {user ? (
-            <div className="p-4 rounded-[14px] bg-[#17161A] border border-[#35343C] flex flex-col gap-4">
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-4">
               <div className="flex items-center justify-between gap-4">
-                <div className="flex flex-col gap-2">
-                  <span className="text-[12px] text-[#9C9AA3] block">Tài khoản liên kết:</span>
-                  <span className="text-[14px] text-[#F2F1ED] font-semibold">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-zinc-400 block">Tài khoản liên kết:</span>
+                  <span className="text-sm text-zinc-100 font-semibold truncate">
                     {user.email || user.displayName}
                   </span>
                 </div>
-                <span className="text-[12px] text-[#4CAF6D] font-medium">
+                <span className="text-xs text-emerald-400 font-medium">
                   Đã đồng bộ
                 </span>
               </div>
               <button
                 onClick={signOut}
-                className="w-full min-h-[48px] py-2 px-4 rounded-[14px] bg-[#E4483C]/15 hover:bg-[#E4483C]/25 border border-[#E4483C] text-[#E4483C] text-[14px] font-semibold transition flex items-center justify-center gap-2"
+                className="w-full min-h-[44px] py-2 px-4 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-semibold transition-all duration-200 ease-out active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 stroke-[1.75]" />
                 <span>Đăng xuất tài khoản</span>
               </button>
             </div>
@@ -529,9 +732,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 setShowSettings(false);
                 openAuthModal();
               }}
-              className="w-full min-h-[48px] py-2 px-4 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] active:bg-[#C23629] text-[#F2F1ED] text-[14px] font-semibold transition flex items-center justify-center gap-2"
+              className="apple-btn-primary w-full min-h-[44px] py-2 px-4 text-xs font-semibold gap-2"
             >
-              <LogIn className="w-4 h-4" />
+              <LogIn className="w-4 h-4 stroke-[1.75]" />
               <span>Đăng nhập / tạo tài khoản</span>
             </button>
           )}
@@ -571,17 +774,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       />
 
       {/* 1.5. Adding Friends via Username or Gmail & Synced Gym Buddies */}
-      <section className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4">
+      <section className="apple-card p-6 flex flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-[14px] bg-[#28272E] border border-[#35343C] flex items-center justify-center text-[#E4483C] shrink-0">
-              <UserPlus className="w-5 h-5" />
+          <div className="flex items-center gap-3.5">
+            <div className="apple-icon-badge-accent">
+              <UserPlus className="w-5 h-5 stroke-[1.75]" />
             </div>
-            <div className="flex flex-col gap-2">
-              <h3 className="font-display font-bold text-[18px] text-[#F2F1ED]">
+            <div className="flex flex-col gap-0.5">
+              <h3 className="font-display font-bold text-lg text-zinc-100 tracking-tight">
                 Kết bạn & bạn tập ({buddies.length})
               </h3>
-              <p className="text-[12px] text-[#9C9AA3]">
+              <p className="text-xs text-zinc-400 font-normal">
                 Đồng bộ trực tiếp với bảng tin chính để nhắc tập
               </p>
             </div>
@@ -590,30 +793,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <button
               type="button"
               onClick={onGoToFeed}
-              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] text-[13px] font-semibold transition flex items-center gap-2 border border-[#35343C] shrink-0"
+              className="apple-btn-secondary min-h-[40px] px-3.5 py-1.5 text-xs font-semibold gap-1.5 shrink-0"
               title="Xem bạn tập trên bảng tin"
             >
               <span>Bảng tin</span>
-              <ExternalLink className="w-4 h-4 text-[#E4483C]" />
+              <ExternalLink className="w-3.5 h-3.5 text-[#E4483C] stroke-[1.75]" />
             </button>
           )}
         </div>
 
-        {/* Mode Switcher: Username vs Gmail */}
-        <div className="flex items-center gap-2 bg-[#17161A] p-2 rounded-[14px] border border-[#35343C]">
+        {/* Mode Switcher: Username vs Gmail (Apple Segmented Control) */}
+        <div className="apple-segmented-control w-full">
           <button
             type="button"
             onClick={() => {
               setFriendInputMode('username');
               setFriendStatusMsg(null);
             }}
-            className={`flex-1 min-h-[48px] py-2 px-4 rounded-[14px] text-[14px] font-semibold transition flex items-center justify-center gap-2 ${
+            className={`flex-1 min-h-[38px] py-1.5 px-4 rounded-xl text-xs font-semibold transition-all duration-200 ease-out flex items-center justify-center gap-2 active:scale-[0.98] ${
               friendInputMode === 'username'
-                ? 'bg-[#E4483C] text-[#F2F1ED]'
-                : 'text-[#9C9AA3] hover:text-[#F2F1ED]'
+                ? 'bg-white/15 text-white shadow-xs border border-white/10'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <AtSign className="w-4 h-4" />
+            <AtSign className="w-3.5 h-3.5 stroke-[1.75]" />
             <span>Theo tên người dùng</span>
           </button>
           <button
@@ -622,24 +825,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               setFriendInputMode('gmail');
               setFriendStatusMsg(null);
             }}
-            className={`flex-1 min-h-[48px] py-2 px-4 rounded-[14px] text-[14px] font-semibold transition flex items-center justify-center gap-2 ${
+            className={`flex-1 min-h-[38px] py-1.5 px-4 rounded-xl text-xs font-semibold transition-all duration-200 ease-out flex items-center justify-center gap-2 active:scale-[0.98] ${
               friendInputMode === 'gmail'
-                ? 'bg-[#E4483C] text-[#F2F1ED]'
-                : 'text-[#9C9AA3] hover:text-[#F2F1ED]'
+                ? 'bg-white/15 text-white shadow-xs border border-white/10'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <Mail className="w-4 h-4" />
+            <Mail className="w-3.5 h-3.5 stroke-[1.75]" />
             <span>Theo Gmail</span>
           </button>
         </div>
 
         {/* Add Friend Input Form */}
-        <form onSubmit={handleAddFriendSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+        <form onSubmit={handleAddFriendSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
           <div className="relative flex-1 min-w-0">
             {friendInputMode === 'username' ? (
-              <AtSign className="w-4 h-4 text-[#9C9AA3] absolute left-4 top-4" />
+              <AtSign className="w-4 h-4 text-zinc-400 absolute left-4 top-3.5 stroke-[1.75]" />
             ) : (
-              <Mail className="w-4 h-4 text-[#E4483C] absolute left-4 top-4" />
+              <Mail className="w-4 h-4 text-[#E4483C] absolute left-4 top-3.5 stroke-[1.75]" />
             )}
             <input
               type={friendInputMode === 'gmail' ? 'email' : 'text'}
@@ -650,15 +853,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   ? 'Nhập tên người dùng (vd: @duc_power)...'
                   : 'Nhập Gmail (vd: duc.power@gmail.com)...'
               }
-              className="w-full min-w-0 min-h-[48px] bg-[#28272E] border border-[#35343C] rounded-[14px] pl-10 pr-4 py-2 text-[14px] text-[#F2F1ED] placeholder-[#656470] focus:outline-hidden focus:border-[#E4483C]"
+              className="w-full min-w-0 min-h-[44px] bg-black/40 border border-white/10 rounded-2xl pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#E4483C] transition-colors"
             />
           </div>
           <button
             type="submit"
             disabled={isAddingFriend}
-            className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#E4483C] hover:bg-[#C23629] active:bg-[#C23629] text-[#F2F1ED] font-semibold text-[14px] transition shrink-0 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="apple-btn-primary min-h-[44px] px-5 py-2 text-xs font-semibold shrink-0 gap-2 disabled:opacity-50"
           >
-            <UserPlus className="w-4 h-4 shrink-0" />
+            <UserPlus className="w-4 h-4 stroke-[1.75] shrink-0" />
             <span>{isAddingFriend ? 'Đang thêm...' : 'Kết bạn'}</span>
           </button>
         </form>
@@ -666,52 +869,54 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* Feedback Banner */}
         {friendStatusMsg && (
           <div
-            className={`px-4 py-2 rounded-[14px] text-[13px] font-medium flex items-center justify-between gap-4 ${
+            className={`px-4 py-2.5 rounded-2xl text-xs font-medium flex items-center justify-between gap-4 ${
               friendStatusMsg.isError
-                ? 'bg-[#E4483C]/15 text-[#E4483C] border border-[#E4483C]'
-                : 'bg-[#4CAF6D]/15 text-[#4CAF6D] border border-[#4CAF6D]'
+                ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
             }`}
           >
             <span>{friendStatusMsg.text}</span>
             <button
               type="button"
               onClick={() => setFriendStatusMsg(null)}
-              className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] flex items-center justify-center text-[#9C9AA3] hover:text-[#F2F1ED]"
+              className="w-8 h-8 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-zinc-100 transition-all duration-200 active:scale-[0.96]"
+              title="Đóng thông báo"
+              aria-label="Đóng thông báo"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 stroke-[1.75]" />
             </button>
           </div>
         )}
 
         {/* Quick Suggested Athletes to Add */}
         {availableSuggestions.length > 0 && (
-          <div className="flex flex-col gap-2 pt-2">
-            <span className="text-[12px] text-[#9C9AA3] block">
+          <div className="flex flex-col gap-2.5 pt-2">
+            <span className="text-xs text-zinc-400 block font-medium">
               Gợi ý bạn tập cùng hệ thống:
             </span>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
               {availableSuggestions.map(({ buddy }) => (
                 <div
                   key={buddy.id}
-                  className="p-4 rounded-[14px] bg-[#17161A] border border-[#35343C] flex flex-wrap sm:flex-nowrap items-center justify-between gap-4"
+                  className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-wrap sm:flex-nowrap items-center justify-between gap-4"
                 >
-                  <div className="flex items-center gap-4 min-w-0 flex-1 basis-[180px]">
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1 basis-[180px]">
                     <img
                       src={buddy.avatar}
                       alt={buddy.name}
                       referrerPolicy="no-referrer"
-                      className="w-12 h-12 rounded-[14px] object-cover border border-[#E4483C] shrink-0"
+                      className="w-12 h-12 rounded-2xl object-cover border border-[#E4483C]/70 shrink-0"
                     />
-                    <div className="min-w-0 flex-1 flex flex-col gap-2">
+                    <div className="min-w-0 flex-1 flex flex-col gap-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-display text-[14px] font-semibold text-[#F2F1ED] truncate">
+                        <span className="font-display text-sm font-semibold text-zinc-100 truncate tracking-tight">
                           {buddy.name}
                         </span>
-                        <span className="text-[12px] text-[#E4483C]">
+                        <span className="text-xs text-[#E4483C] font-medium">
                           {buddy.username}
                         </span>
                       </div>
-                      <span className="text-[12px] text-[#9C9AA3] block truncate">
+                      <span className="text-xs text-zinc-400 block truncate">
                         {buddy.email} · {buddy.gymLocation}
                       </span>
                     </div>
@@ -720,9 +925,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     type="button"
                     onClick={() => handleQuickAddSuggested(buddy)}
                     disabled={isAddingFriend}
-                    className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] bg-[#28272E] hover:bg-[#35343C] text-[#F2F1ED] text-[13px] font-semibold border border-[#35343C] shrink-0 transition ml-auto"
+                    className="apple-btn-secondary min-h-[40px] px-4 py-1.5 text-xs font-semibold shrink-0 gap-1.5 ml-auto"
                   >
-                    + Kết bạn
+                    <span>+ Kết bạn</span>
                   </button>
                 </div>
               ))}
@@ -731,15 +936,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         )}
 
         {/* Current Synced Friends List */}
-        <div className="pt-4 border-t border-[#35343C] flex flex-col gap-4">
+        <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-[13px] font-medium text-[#F2F1ED] flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#E4483C]" />
+            <span className="text-xs font-semibold text-zinc-300 flex items-center gap-2 tracking-tight">
+              <Users className="w-4 h-4 text-[#E4483C] stroke-[1.75]" />
               <span>Danh sách bạn tập đã đồng bộ ({buddies.length})</span>
             </span>
           </div>
 
-          <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-2">
+          <div className="flex flex-col gap-2.5 max-h-80 overflow-y-auto pr-1">
             {buddies.length === 0 ? (
               <EmptyStateView
                 type="friends"
@@ -752,32 +957,32 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               buddies.map((buddy) => (
                 <div
                   key={buddy.id}
-                  className="p-4 rounded-[14px] bg-[#17161A] border border-[#35343C] flex flex-wrap sm:flex-nowrap items-center justify-between gap-4"
+                  className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-wrap sm:flex-nowrap items-center justify-between gap-4"
                 >
-                  <div className="flex items-center gap-4 min-w-0 flex-1 basis-[170px]">
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1 basis-[170px]">
                     <div className="relative shrink-0">
                       <img
                         src={buddy.avatar}
                         alt={buddy.name}
                         referrerPolicy="no-referrer"
-                        className="w-12 h-12 rounded-[14px] object-cover border border-[#E4483C]"
+                        className="w-12 h-12 rounded-2xl object-cover border border-[#E4483C]/70 shadow-xs"
                       />
-                      <span className="absolute -bottom-1 -right-1 text-[10px] bg-[#1F1E24] px-2 py-0.5 rounded-[14px] border border-[#35343C] font-display font-semibold text-[#E0B93D] tabular-nums">
+                      <span className="absolute -bottom-1 -right-1 text-[10px] bg-zinc-950/90 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 font-display font-semibold text-[#E0B93D] tabular-nums">
                         🔥{buddy.streakWeeks}
                       </span>
                     </div>
-                    <div className="min-w-0 flex-1 flex flex-col gap-2">
+                    <div className="min-w-0 flex-1 flex flex-col gap-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-display text-[15px] font-semibold text-[#F2F1ED] truncate">
+                        <span className="font-display text-sm font-semibold text-zinc-100 truncate tracking-tight">
                           {buddy.name}
                         </span>
                         {buddy.username && (
-                          <span className="text-[12px] text-[#9C9AA3]">
+                          <span className="text-xs text-zinc-400">
                             {buddy.username}
                           </span>
                         )}
                       </div>
-                      <span className="text-[12px] text-[#9C9AA3] block truncate">
+                      <span className="text-xs text-zinc-400 block truncate">
                         📍 {buddy.gymLocation}
                       </span>
                     </div>
@@ -801,10 +1006,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                               setSelectedBuddyForNudge(buddy);
                             }
                           }}
-                          className={`min-h-[48px] min-w-[48px] px-4 py-2 rounded-[14px] border text-[13px] font-semibold transition flex items-center gap-2 active:scale-95 ${
+                          className={`min-h-[40px] px-4 py-1.5 rounded-2xl text-xs font-semibold transition-all duration-200 ease-out flex items-center gap-2 active:scale-[0.98] ${
                             isOnCooldown
-                              ? 'bg-[#28272E] text-[#9C9AA3] border-[#35343C]'
-                              : 'bg-[#E4483C]/15 hover:bg-[#E4483C]/25 text-[#E4483C] border-[#E4483C]'
+                              ? 'bg-white/[0.04] text-zinc-400 border border-white/10 cursor-not-allowed'
+                              : 'apple-btn-accent'
                           }`}
                           title={
                             isOnCooldown
@@ -812,7 +1017,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                               : `Nhắc ${buddy.name} đi tập ngay`
                           }
                         >
-                          {isOnCooldown ? <span>⏳</span> : <Zap className="w-4 h-4" />}
+                          {isOnCooldown ? <span className="text-xs">⏳</span> : <Zap className="w-3.5 h-3.5 stroke-[1.75]" />}
                           <span>{isOnCooldown ? 'Đang chờ' : 'Nhắc tập'}</span>
                         </button>
                       );
@@ -821,11 +1026,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       <button
                         type="button"
                         onClick={() => onRemoveFriend(buddy.id)}
-                        className="min-w-[48px] min-h-[48px] w-12 h-12 rounded-[14px] bg-[#28272E] hover:bg-[#E4483C]/20 text-[#9C9AA3] hover:text-[#E4483C] border border-[#35343C] transition flex items-center justify-center"
+                        className="w-10 h-10 rounded-2xl bg-white/[0.04] hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 border border-white/10 transition-all duration-200 ease-out flex items-center justify-center active:scale-[0.96]"
                         title="Xóa bạn tập"
                         aria-label={`Xóa bạn tập ${buddy.name}`}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 stroke-[1.75]" />
                       </button>
                     )}
                   </div>
@@ -837,67 +1042,356 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </section>
 
       {/* 2. PR Trophy Case */}
-      <section className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4">
+      <section className="apple-card p-6 flex flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-[#E4483C]" />
-            <h3 className="font-display font-bold text-[18px] text-[#F2F1ED]">
-              Kỷ lục cá nhân
-            </h3>
+          <div className="flex items-center gap-3.5">
+            <div className="apple-icon-badge-accent">
+              <Trophy className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <h3 className="font-display font-bold text-lg text-zinc-100 tracking-tight">
+                Kỷ lục cá nhân (PR)
+              </h3>
+              <p className="text-xs text-zinc-400 font-normal">
+                Đồng bộ từ Logger ({unit.toUpperCase()})
+              </p>
+            </div>
           </div>
-          <span className="text-[12px] text-[#9C9AA3]">Đã kiểm chứng</span>
+          <span className="text-xs text-zinc-400 font-medium">
+            4 bài Compound
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:gap-4">
-          {PR_TROPHIES.map((pr) => (
-            <div
-              key={pr.name}
-              className="p-4 rounded-[14px] bg-[#17161A] border border-[#35343C] flex items-center justify-between gap-4"
-            >
-              <div className="flex flex-col gap-2">
-                <span className="text-[12px] text-[#9C9AA3] block">{pr.name}</span>
-                <span className="font-display tabular-nums text-[18px] font-bold text-[#F2F1ED] block">
-                  {pr.weight}
-                </span>
-                <span
-                  className="text-[12px] font-medium block"
-                  style={{ color: pr.color }}
-                >
-                  {pr.type}
-                </span>
-              </div>
-              <span className="text-2xl">{pr.icon}</span>
+        {/* Recharts Responsive Bar Chart */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-col gap-0.5">
+              <span className="font-display font-semibold text-sm text-zinc-100 tracking-tight">
+                Biểu đồ tiến độ mức tạ PR
+              </span>
+              <span className="text-xs text-zinc-400">
+                So sánh kỷ lục trước và PR mới nhất · Di chuột để xem ngày lập PR
+              </span>
             </div>
-          ))}
+
+            <div className="flex items-center gap-3 text-xs text-zinc-400 font-medium">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                <span>Kỷ lục trước</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#E4483C]" />
+                <span>PR hiện tại</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="w-full h-56 sm:h-64 pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={prTrophies}
+                margin={{ top: 8, right: 8, left: -16, bottom: 4 }}
+                barGap={6}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255, 255, 255, 0.06)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="shortLabel"
+                  tick={{ fill: '#A1A1AA', fontSize: 11, fontWeight: 600 }}
+                  axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: '#A1A1AA', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  unit={` ${unit}`}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255, 255, 255, 0.04)', radius: 8 }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    const dataPoint = payload[0]?.payload as (typeof prTrophies)[number] | undefined;
+                    if (!dataPoint) return null;
+
+                    return (
+                      <div className="rounded-2xl bg-zinc-900/90 backdrop-blur-xl border border-white/10 p-4 shadow-2xl flex flex-col gap-2 min-w-[210px]">
+                        <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/10">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{dataPoint.icon}</span>
+                            <span className="font-display font-bold text-xs text-zinc-100">
+                              {dataPoint.name}
+                            </span>
+                          </div>
+                          <span
+                            className="text-[11px] font-display font-bold px-2 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor: `${dataPoint.color}25`,
+                              color: dataPoint.color,
+                            }}
+                          >
+                            +{dataPoint.gainDisplay} {unit}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 text-xs">
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-zinc-400">PR hiện tại:</span>
+                            <strong
+                              className="font-display tabular-nums text-sm"
+                              style={{ color: dataPoint.color }}
+                            >
+                              {dataPoint.currentWeightDisplay} {unit}
+                            </strong>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-zinc-400">Ngày lập PR:</span>
+                            <span className="font-display tabular-nums text-zinc-100 font-semibold">
+                              📅 {dataPoint.prDate}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4 pt-1 border-t border-white/10 text-[11px]">
+                            <span className="text-zinc-500">
+                              Kỷ lục trước ({dataPoint.previousDate}):
+                            </span>
+                            <span className="font-display tabular-nums text-zinc-400">
+                              {dataPoint.previousWeightDisplay} {unit}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
+                <Bar
+                  dataKey="previousWeightDisplay"
+                  name="Kỷ lục trước"
+                  fill="rgba(255, 255, 255, 0.15)"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={28}
+                />
+                <Bar
+                  dataKey="currentWeightDisplay"
+                  name="PR hiện tại"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={28}
+                >
+                  {prTrophies.map((entry) => (
+                    <Cell key={`cell-${entry.key}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          {prTrophies.map((pr) => {
+            const isSelected = selectedLiftKey === pr.key;
+            return (
+              <div
+                key={pr.key}
+                onClick={() => {
+                  if (pr.hasData) {
+                    setSelectedLiftKey(isSelected && !isEntering1RM ? null : pr.key);
+                    setIsEntering1RM(false);
+                  }
+                }}
+                role={pr.hasData ? 'button' : undefined}
+                tabIndex={pr.hasData ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (pr.hasData && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    setSelectedLiftKey(isSelected && !isEntering1RM ? null : pr.key);
+                    setIsEntering1RM(false);
+                  }
+                }}
+                className={`p-4 sm:p-5 rounded-2xl bg-white/[0.03] border transition-all duration-200 ease-out flex items-center justify-between gap-3 active:scale-[0.98] ${
+                  isSelected
+                    ? 'border-[#E4483C] bg-white/[0.06] shadow-sm'
+                    : pr.hasData
+                    ? 'border-white/[0.08] hover:border-white/20 hover:bg-white/[0.05] cursor-pointer'
+                    : 'border-white/[0.06]'
+                }`}
+              >
+                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                  <span className="text-xs text-zinc-400 block truncate font-medium">
+                    {pr.name}
+                  </span>
+                  <span
+                    className={`font-display tabular-nums text-lg font-bold block tracking-tight ${
+                      pr.hasData ? 'text-zinc-100' : 'text-zinc-500'
+                    }`}
+                  >
+                    {pr.weight}
+                  </span>
+                  {pr.hasData ? (
+                    <span
+                      className="text-xs font-semibold block truncate"
+                      style={{ color: pr.color }}
+                    >
+                      {pr.type}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpen1RMInput(pr.key, 0);
+                      }}
+                      className="mt-0.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-200 border border-white/10 hover:border-white/20 text-xs font-semibold transition-all duration-200 inline-flex items-center gap-1.5 w-fit active:scale-[0.96]"
+                    >
+                      <span>Nhập 1RM tối đa</span>
+                    </button>
+                  )}
+                </div>
+                <span className="text-2xl shrink-0">{pr.icon}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Linked PR Detail / Manual 1RM Input Drawer */}
+        {selectedLiftKey && (() => {
+          const activeLift = prTrophies.find((item) => item.key === selectedLiftKey);
+          if (!activeLift) return null;
+
+          return (
+            <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-lg shrink-0">{activeLift.icon}</span>
+                  <span className="font-display font-semibold text-sm text-zinc-100 truncate tracking-tight">
+                    {activeLift.name}
+                  </span>
+                  {activeLift.source === 'logger' && (
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium">
+                      Logger PR
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLiftKey(null);
+                    setIsEntering1RM(false);
+                  }}
+                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 active:scale-[0.96]"
+                  title="Đóng chi tiết PR"
+                  aria-label="Đóng chi tiết PR"
+                >
+                  <X className="w-4 h-4 stroke-[1.75]" />
+                </button>
+              </div>
+
+              {isEntering1RM ? (
+                <form onSubmit={handleSaveManual1RM} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="1"
+                      max="1000"
+                      autoFocus
+                      value={manualWeightInput}
+                      onChange={(e) => setManualWeightInput(e.target.value)}
+                      placeholder={`Nhập mức tạ 1RM tối đa (${unit})...`}
+                      className="w-full min-h-[44px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2 text-sm font-display tabular-nums text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#E4483C] transition-colors"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="submit"
+                      className="apple-btn-primary min-h-[44px] px-5 py-2 text-xs font-semibold gap-1.5"
+                    >
+                      <Save className="w-4 h-4 stroke-[1.75]" />
+                      <span>Lưu 1RM</span>
+                    </button>
+                    {onOpenLogger && (
+                      <button
+                        type="button"
+                        onClick={onOpenLogger}
+                        className="apple-btn-secondary min-h-[44px] px-4 py-2 text-xs font-medium"
+                      >
+                        Mở Logger
+                      </button>
+                    )}
+                  </div>
+                </form>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="text-xs text-zinc-400">
+                    {activeLift.source === 'logger' ? (
+                      <span>
+                        Kỷ lục gần nhất từ bài <strong className="text-zinc-100 font-semibold">{activeLift.matchedExerciseName}</strong> ({activeLift.bestSetSummary})
+                      </span>
+                    ) : (
+                      <span>
+                        1RM tối đa đã nhập thủ công{activeLift.updatedAt ? ` ngày ${activeLift.updatedAt}` : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpen1RMInput(activeLift.key, activeLift.activeWeightKg)}
+                      className="apple-btn-secondary min-h-[38px] px-3.5 py-1.5 text-xs font-semibold"
+                    >
+                      Nhập 1RM tối đa
+                    </button>
+                    {onOpenLogger && (
+                      <button
+                        type="button"
+                        onClick={onOpenLogger}
+                        className="apple-btn-accent min-h-[38px] px-3.5 py-1.5 text-xs font-semibold"
+                      >
+                        Tập bài này
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </section>
 
       {/* 3. Completed Challenge Badges */}
-      <section className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4">
+      <section className="apple-card p-6 flex flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-[#E4483C]" />
-            <h3 className="font-display font-bold text-[18px] text-[#F2F1ED]">
-              Huy hiệu đã đạt
-            </h3>
+          <div className="flex items-center gap-3.5">
+            <div className="apple-icon-badge-accent">
+              <Shield className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <h3 className="font-display font-bold text-lg text-zinc-100 tracking-tight">
+                Huy hiệu đã đạt
+              </h3>
+              <p className="text-xs text-zinc-400 font-normal">
+                Ghi nhận cột mốc tập luyện
+              </p>
+            </div>
           </div>
-          <span className="text-[12px] text-[#9C9AA3] font-display tabular-nums">4 huy hiệu</span>
+          <span className="text-xs text-zinc-400 font-display tabular-nums font-medium">4 huy hiệu</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {BADGES.map((b, i) => (
             <div
               key={i}
-              className="p-4 rounded-[14px] bg-[#17161A] border border-[#35343C] flex items-center gap-4"
+              className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center gap-3.5"
             >
-              <span className="w-12 h-12 rounded-[14px] bg-[#28272E] border border-[#35343C] flex items-center justify-center text-xl shrink-0">
+              <span className="w-12 h-12 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-xl shrink-0 shadow-xs">
                 {b.icon}
               </span>
-              <div className="min-w-0 flex flex-col gap-2">
-                <span className="font-display text-[14px] font-semibold text-[#F2F1ED] block truncate">
+              <div className="min-w-0 flex flex-col gap-1">
+                <span className="font-display text-xs sm:text-sm font-semibold text-zinc-100 block truncate tracking-tight">
                   {b.title}
                 </span>
-                <span className="text-[12px] text-[#9C9AA3] block">{b.date}</span>
+                <span className="text-xs text-zinc-400 block">{b.date}</span>
               </div>
             </div>
           ))}
@@ -905,57 +1399,65 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </section>
 
       {/* 4. Monthly Muscle Heatmap Coverage (30 Days) */}
-      <section className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4">
+      <section className="apple-card p-6 flex flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-[#E4483C]" />
-            <h3 className="font-display font-bold text-[18px] text-[#F2F1ED]">
-              Bản đồ cơ bắp 30 ngày
-            </h3>
+          <div className="flex items-center gap-3.5">
+            <div className="apple-icon-badge-accent">
+              <Activity className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <h3 className="font-display font-bold text-lg text-zinc-100 tracking-tight">
+                Bản đồ cơ bắp 30 ngày
+              </h3>
+              <p className="text-xs text-zinc-400 font-normal">
+                Tần suất toàn thân · Khối lượng tập trung mạnh vào ngực và xô
+              </p>
+            </div>
           </div>
-          <span className="text-[12px] text-[#9C9AA3]">Tần suất toàn thân</span>
         </div>
-
-        <p className="text-[14px] text-[#F2F1ED] font-normal">
-          Độ phủ hiệp tập trong 30 ngày vừa qua. Khối lượng tập trung mạnh vào ngực và xô.
-        </p>
 
         <MuscleHeatmap volumeMap={MONTHLY_MUSCLE_VOLUME} />
       </section>
 
       {/* 5. Past Workout Activity Log */}
-      <section className="bg-[#1F1E24] rounded-[20px] border border-[#35343C] p-4 sm:p-6 flex flex-col gap-4">
+      <section className="apple-card p-6 flex flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#E4483C]" />
-            <h3 className="font-display font-bold text-[18px] text-[#F2F1ED]">
-              Lịch sử buổi tập gần đây
-            </h3>
+          <div className="flex items-center gap-3.5">
+            <div className="apple-icon-badge-accent">
+              <Calendar className="w-5 h-5 stroke-[1.75]" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <h3 className="font-display font-bold text-lg text-zinc-100 tracking-tight">
+                Lịch sử buổi tập gần đây
+              </h3>
+              <p className="text-xs text-zinc-400 font-normal">
+                3 buổi tập hoàn thành mới nhất
+              </p>
+            </div>
           </div>
-          <span className="text-[12px] text-[#9C9AA3] font-display tabular-nums">3 buổi gần nhất</span>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {PAST_WORKOUTS.map((w, idx) => (
             <div
               key={idx}
-              className="p-4 rounded-[14px] bg-[#17161A] border border-[#35343C] flex flex-col gap-2"
+              className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-2 hover:bg-white/[0.05] transition-all duration-200 ease-out"
             >
-              <div className="flex items-center justify-between gap-4 text-[12px] text-[#9C9AA3]">
+              <div className="flex items-center justify-between gap-4 text-xs text-zinc-400 font-medium">
                 <span>{w.date}</span>
-                <span>{w.gym}</span>
+                <span className="truncate">{w.gym}</span>
               </div>
-              <h5 className="font-display font-semibold text-[16px] text-[#F2F1ED]">
+              <h5 className="font-display font-semibold text-base text-zinc-100 tracking-tight">
                 {w.title}
               </h5>
-              <div className="flex items-center gap-2 text-[13px] font-display tabular-nums">
+              <div className="flex items-center gap-2 text-xs font-display tabular-nums">
                 <span className="font-semibold" style={{ color: w.rpeColor }}>
                   {w.volume}
                 </span>
-                <span className="text-[#656470]" aria-hidden="true">·</span>
-                <span className="text-[#F2F1ED]">{w.sets} hiệp</span>
-                <span className="text-[#656470]" aria-hidden="true">·</span>
-                <span className="text-[#9C9AA3]">{w.duration}</span>
+                <span className="text-zinc-600" aria-hidden="true">·</span>
+                <span className="text-zinc-200">{w.sets} hiệp</span>
+                <span className="text-zinc-600" aria-hidden="true">·</span>
+                <span className="text-zinc-400">{w.duration}</span>
               </div>
             </div>
           ))}

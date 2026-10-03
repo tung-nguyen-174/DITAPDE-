@@ -206,31 +206,31 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
   return (
     <div className="flex flex-col p-6 sm:p-8 gap-6 max-w-3xl mx-auto w-full bg-zinc-950 text-zinc-100">
-      {/* Sub-Tab Switcher: "Phòng tập" vs "Giáo án cộng đồng" */}
-      <div className="flex items-center gap-2 backdrop-blur-md bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800 shadow-sm">
+      {/* Sub-Tab Switcher: "Phòng tập" vs "Giáo án cộng đồng" (Apple Segmented Control) */}
+      <div className="apple-segmented-control w-full">
         <button
           type="button"
           onClick={() => setSubTab('gyms')}
-          className={`flex-1 min-h-[44px] px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ease-in-out flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+          className={`flex-1 min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ease-out flex items-center justify-center gap-2 active:scale-[0.98] ${
             subTab === 'gyms'
-              ? 'bg-emerald-500 text-zinc-950 font-semibold shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60'
+              ? 'bg-white/15 text-white shadow-xs border border-white/10'
+              : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <MapPin className="w-4 h-4 stroke-[1.5] shrink-0" />
+          <MapPin className="w-4 h-4 stroke-[1.75] shrink-0" />
           <span>Phòng tập gần đây</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubTab('routines')}
-          className={`flex-1 min-h-[44px] px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ease-in-out flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+          className={`flex-1 min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ease-out flex items-center justify-center gap-2 active:scale-[0.98] ${
             subTab === 'routines'
-              ? 'bg-emerald-500 text-zinc-950 font-semibold shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60'
+              ? 'bg-white/15 text-white shadow-xs border border-white/10'
+              : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <Dumbbell className="w-4 h-4 stroke-[1.5] shrink-0" />
+          <Dumbbell className="w-4 h-4 stroke-[1.75] shrink-0" />
           <span>Giáo án cộng đồng</span>
         </button>
       </div>
@@ -257,24 +257,25 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           )}
 
           {/* Search & City Filter Bar */}
-          <div className="p-6 backdrop-blur-md bg-zinc-900/50 border border-zinc-800 rounded-2xl shadow-sm flex flex-col gap-4">
+          <div className="apple-card p-6 flex flex-col gap-4">
             <div className="flex items-center gap-2.5">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-zinc-400 stroke-[1.5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="relative flex-1 min-w-0">
+                <Search className="w-4 h-4 text-zinc-400 stroke-[1.75] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Tìm phòng tập theo tên, đường, khu vực..."
-                  className="w-full min-h-[44px] pl-10 pr-9 py-2 rounded-xl bg-zinc-950 border border-zinc-800 focus:ring-2 focus:ring-zinc-500 focus:outline-none text-sm text-zinc-100 placeholder:text-zinc-500 transition-all duration-200 ease-in-out"
+                  className="w-full min-h-[44px] pl-10 pr-9 py-2 rounded-2xl bg-black/40 border border-white/10 focus:border-[#E4483C] focus:outline-none text-sm text-zinc-100 placeholder:text-zinc-500 transition-colors"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100 p-1 transition-all duration-200"
+                    className="w-7 h-7 rounded-lg bg-white/10 border border-white/10 absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 active:scale-[0.96]"
+                    title="Xóa tìm kiếm"
                   >
-                    <X className="w-4 h-4 stroke-[1.5]" />
+                    <X className="w-3.5 h-3.5 stroke-[1.75]" />
                   </button>
                 )}
               </div>
@@ -284,10 +285,10 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 onClick={handleLocateMe}
                 disabled={isLocating}
                 title="Định vị GPS quanh tôi"
-                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800/60 border border-zinc-800 text-zinc-100 text-xs font-medium flex items-center gap-1.5 shrink-0 transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                className="apple-btn-secondary min-h-[44px] px-3.5 py-2 text-xs font-semibold gap-1.5 shrink-0"
               >
                 <Navigation
-                  className={`w-4 h-4 text-emerald-400 stroke-[1.5] ${
+                  className={`w-4 h-4 text-[#E4483C] stroke-[1.75] ${
                     isLocating ? 'animate-spin' : ''
                   }`}
                 />
@@ -297,25 +298,25 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setShowAddGymModal(true)}
-                className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-1.5 shrink-0 transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                className="apple-btn-primary min-h-[44px] px-4 py-2 text-xs font-semibold gap-1.5 shrink-0"
               >
-                <Plus className="w-4 h-4 stroke-[1.5]" />
+                <Plus className="w-4 h-4 stroke-[1.75]" />
                 <span className="hidden sm:inline">Thêm phòng</span>
               </button>
             </div>
 
             {/* City Filter Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
               {['Tất cả', 'Gần tôi', 'Thanh Hóa', 'Hà Nội', 'TP.HCM', 'Đà Nẵng'].map(
                 (city) => (
                   <button
                     key={city}
                     type="button"
                     onClick={() => handleCitySelect(city)}
-                    className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-200 ease-in-out shrink-0 border focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+                    className={`min-h-[36px] px-4 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ease-out shrink-0 active:scale-[0.98] ${
                       selectedCity === city
-                        ? 'bg-zinc-100 text-zinc-950 border-zinc-100 font-semibold shadow-sm'
-                        : 'bg-zinc-950/60 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 border-zinc-800'
+                        ? 'bg-white text-zinc-950 font-bold shadow-xs'
+                        : 'bg-white/[0.04] text-zinc-400 hover:text-white border border-white/10'
                     }`}
                   >
                     {city}
@@ -326,9 +327,9 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
             {/* Active Check-in Status Banner */}
             {activeGymCheckIn && (
-              <div className="px-4 py-3 rounded-xl bg-zinc-950/80 border border-emerald-500/40 flex items-center justify-between gap-4">
+              <div className="px-4 py-3 rounded-2xl bg-white/[0.04] border border-[#E4483C]/40 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <MapPin className="w-4 h-4 text-emerald-400 stroke-[1.5] shrink-0" />
+                  <MapPin className="w-4 h-4 text-[#E4483C] stroke-[1.75] shrink-0" />
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-zinc-100 truncate">
                       Đang Check-in: {activeGymCheckIn.name}
@@ -338,7 +339,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-medium text-emerald-400 shrink-0">
+                <span className="text-xs font-semibold text-emerald-400 shrink-0">
                   Đang tập
                 </span>
               </div>
@@ -348,18 +349,22 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           {/* Nearby Gym Cards List & Information */}
           <div className="flex flex-col gap-6">
             <div className="w-full flex items-center justify-between gap-4">
-              <div className="text-left flex flex-col gap-1">
-                <h3 className="font-display font-bold tracking-tight text-lg text-zinc-100 flex items-center gap-2">
-                  <Compass className="w-5 h-5 text-emerald-400 stroke-[1.5]" />
-                  <span>Phòng tập gần bạn ({filteredGyms.length})</span>
-                </h3>
-                <p className="text-sm text-zinc-400">
-                  Xem thông tin chi tiết phòng tập gần bạn và bấm Check-in để bắt đầu buổi tập
-                </p>
+              <div className="flex items-center gap-3.5">
+                <div className="apple-icon-badge-accent">
+                  <Compass className="w-5 h-5 stroke-[1.75]" />
+                </div>
+                <div className="text-left flex flex-col gap-0.5">
+                  <h3 className="font-display font-bold tracking-tight text-lg text-zinc-100">
+                    Phòng tập gần bạn ({filteredGyms.length})
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Xem thông tin chi tiết và bấm Check-in để bắt đầu buổi tập
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-5">
               {filteredGyms.map((gym) => {
                 const isSelected = selectedGym?.placeId === gym.placeId;
                 const isCheckedIn = activeGymCheckIn?.placeId === gym.placeId;
@@ -374,27 +379,27 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   <div
                     key={gym.placeId}
                     onClick={() => handleSelectGym(gym)}
-                    className={`p-6 rounded-2xl backdrop-blur-md bg-zinc-900/50 border shadow-sm transition-all duration-200 ease-in-out hover:bg-zinc-800/40 flex flex-col gap-5 cursor-pointer ${
+                    className={`p-6 rounded-2xl apple-card-interactive flex flex-col gap-5 cursor-pointer ${
                       isCheckedIn || isSelected
-                        ? 'border-emerald-500/50'
-                        : 'border-zinc-800 hover:border-zinc-700'
+                        ? 'border-[#E4483C]/70 shadow-sm'
+                        : ''
                     }`}
                   >
-                    <div className="flex items-start gap-5">
+                    <div className="flex items-start gap-4 sm:gap-5">
                       <img
                         src={gym.photoUrl}
                         alt={gym.name}
                         referrerPolicy="no-referrer"
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover border border-zinc-800 shrink-0"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border border-white/10 shrink-0 shadow-xs"
                       />
 
-                      <div className="flex-1 min-w-0 flex flex-col gap-2">
+                      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                         <div className="flex items-start justify-between gap-3">
                           <h4 className="font-display font-bold tracking-tight text-base text-zinc-100 leading-snug">
                             {gym.name}
                           </h4>
                           {gym.city && (
-                            <span className="text-xs text-zinc-400 shrink-0">
+                            <span className="text-xs text-zinc-400 shrink-0 font-medium">
                               {gym.city}
                             </span>
                           )}
@@ -405,17 +410,17 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
                         {/* Unboxed Metadata Row with typographic separators */}
                         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-zinc-400 font-display tabular-nums">
-                          <span className="text-emerald-400 font-semibold">
+                          <span className="text-[#E0B93D] font-semibold">
                             {gym.rating.toFixed(1)} ★ ({gym.userRatingsTotal})
                           </span>
-                          <span aria-hidden="true">·</span>
-                          <span className="text-zinc-100 font-medium">
+                          <span aria-hidden="true" className="text-zinc-600">·</span>
+                          <span className="text-zinc-200 font-medium">
                             {distanceStr}
                           </span>
                           {gym.activeMembers && (
                             <>
-                              <span aria-hidden="true">·</span>
-                              <span className="text-emerald-400">
+                              <span aria-hidden="true" className="text-zinc-600">·</span>
+                              <span className="text-emerald-400 font-medium">
                                 {gym.activeMembers} đang tập
                               </span>
                             </>
@@ -426,7 +431,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                           <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-zinc-500">
                             {gym.tags.map((tag, idx) => (
                               <React.Fragment key={tag}>
-                                {idx > 0 && <span aria-hidden="true">·</span>}
+                                {idx > 0 && <span aria-hidden="true" className="text-zinc-700">·</span>}
                                 <span>{tag}</span>
                               </React.Fragment>
                             ))}
@@ -441,20 +446,20 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                         e.stopPropagation();
                         handleCheckInHere(gym);
                       }}
-                      className={`w-full min-h-[44px] px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ease-in-out hover:scale-[1.01] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 flex items-center justify-center gap-2 shadow-sm ${
+                      className={`w-full min-h-[44px] px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm transition-all duration-200 ease-out flex items-center justify-center gap-2 active:scale-[0.98] ${
                         isCheckedIn
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
-                          : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : 'apple-btn-accent'
                       }`}
                     >
                       {isCheckedIn ? (
                         <>
-                          <CheckCircle2 className="w-4 h-4 stroke-[1.5] shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 stroke-[1.75] shrink-0" />
                           <span>Đã Check-in Tại Đây</span>
                         </>
                       ) : (
                         <>
-                          <MapPin className="w-4 h-4 stroke-[1.5] shrink-0" />
+                          <MapPin className="w-4 h-4 stroke-[1.75] shrink-0" />
                           <span>Check-in Tại Đây</span>
                         </>
                       )}
@@ -469,19 +474,24 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
         /* Community Forkable Routines Sub-Tab */
         <section className="flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h3 className="font-display font-bold tracking-tight text-lg text-zinc-100">
-              Lịch tập cộng đồng
-            </h3>
+            <div className="flex items-center gap-3.5">
+              <div className="apple-icon-badge-accent">
+                <Dumbbell className="w-5 h-5 stroke-[1.75]" />
+              </div>
+              <h3 className="font-display font-bold tracking-tight text-lg text-zinc-100">
+                Lịch tập cộng đồng
+              </h3>
+            </div>
 
-            <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
               {['Tất cả', 'Tân Binh', 'Trung Cấp', 'Cao Thủ'].map((lvl) => (
                 <button
                   key={lvl}
                   onClick={() => setSelectedDifficulty(lvl)}
-                  className={`min-h-[40px] px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 ease-in-out shrink-0 focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+                  className={`min-h-[36px] px-4 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ease-out shrink-0 active:scale-[0.98] ${
                     selectedDifficulty === lvl
-                      ? 'bg-zinc-100 text-zinc-950 font-semibold shadow-sm'
-                      : 'backdrop-blur-md bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 border border-zinc-800'
+                      ? 'bg-white text-zinc-950 font-bold shadow-xs'
+                      : 'bg-white/[0.04] text-zinc-400 hover:text-white border border-white/10'
                   }`}
                 >
                   {lvl}
@@ -490,38 +500,38 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-5">
             {filteredRoutines.map((routine) => {
               const isForked = forkedMap[routine.id];
 
               return (
                 <div
                   key={routine.id}
-                  className="backdrop-blur-md bg-zinc-900/50 rounded-2xl border border-zinc-800 p-6 sm:p-8 flex flex-col gap-6 shadow-sm transition-all duration-200 ease-in-out hover:border-zinc-700"
+                  className="apple-card-interactive p-6 sm:p-8 flex flex-col gap-6"
                 >
-                  <div className="flex items-start justify-between gap-4 pb-5 border-b border-zinc-800">
-                    <div className="flex items-center gap-4 min-w-0">
+                  <div className="flex items-start justify-between gap-4 pb-5 border-b border-white/10">
+                    <div className="flex items-center gap-3.5 min-w-0">
                       <img
                         src={routine.authorAvatar}
                         alt={routine.author}
                         referrerPolicy="no-referrer"
-                        className="w-12 h-12 rounded-xl object-cover border border-zinc-800 shrink-0"
+                        className="w-12 h-12 rounded-2xl object-cover border border-white/10 shrink-0 shadow-xs"
                       />
-                      <div className="min-w-0 flex flex-col gap-1.5">
+                      <div className="min-w-0 flex flex-col gap-1">
                         <h4 className="font-display font-bold tracking-tight text-base text-zinc-100 leading-snug truncate">
                           {routine.title}
                         </h4>
                         <div className="flex items-center flex-wrap gap-2 text-xs text-zinc-400">
                           <span>
                             Bởi{' '}
-                            <strong className="text-zinc-100 font-medium">
+                            <strong className="text-zinc-200 font-medium">
                               {routine.author}
                             </strong>
                           </span>
-                          <span aria-hidden="true">·</span>
+                          <span aria-hidden="true" className="text-zinc-600">·</span>
                           <span>{routine.frequency}</span>
-                          <span aria-hidden="true">·</span>
-                          <span className="text-emerald-400 font-medium">
+                          <span aria-hidden="true" className="text-zinc-600">·</span>
+                          <span className="text-[#E4483C] font-semibold">
                             {routine.difficulty}
                           </span>
                         </div>
@@ -529,16 +539,16 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex flex-col divide-y divide-zinc-800/80 border-y border-zinc-800/80">
+                  <div className="flex flex-col divide-y divide-white/[0.06] border-y border-white/[0.06]">
                     {routine.exercises.map((ex, idx) => (
                       <div
                         key={idx}
                         className="flex items-center justify-between gap-4 py-3 text-sm"
                       >
-                        <span className="text-zinc-100 font-normal">
+                        <span className="text-zinc-200 font-normal">
                           {idx + 1}. {ex.name}
                         </span>
-                        <span className="font-display tabular-nums text-emerald-400 text-xs font-medium shrink-0">
+                        <span className="font-display tabular-nums text-[#E4483C] text-xs font-semibold shrink-0">
                           {ex.sets} hiệp × {ex.repsRange}
                         </span>
                       </div>
@@ -546,7 +556,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between gap-4 pt-1">
-                    <span className="text-xs text-zinc-400 font-display tabular-nums">
+                    <span className="text-xs text-zinc-400 font-display tabular-nums font-medium">
                       <strong className="text-zinc-100">
                         {routine.forksCount}
                       </strong>{' '}
@@ -555,16 +565,16 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
                     <button
                       onClick={() => handleFork(routine)}
-                      className={`min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500 flex items-center gap-2 shadow-sm ${
+                      className={`min-h-[42px] px-5 py-2 rounded-2xl text-xs sm:text-sm font-semibold border transition-all duration-200 ease-out active:scale-[0.98] flex items-center gap-2 ${
                         isForked
-                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
-                          : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 border-emerald-500'
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                          : 'apple-btn-accent'
                       }`}
                     >
                       {isForked ? (
-                        <Check className="w-4 h-4 stroke-[1.5]" />
+                        <Check className="w-4 h-4 stroke-[1.75]" />
                       ) : (
-                        <GitFork className="w-4 h-4 stroke-[1.5]" />
+                        <GitFork className="w-4 h-4 stroke-[1.75]" />
                       )}
                       <span>{isForked ? 'Đã lưu lịch' : 'Xin lịch tập'}</span>
                     </button>
@@ -576,26 +586,28 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
         </section>
       )}
 
-      {/* Modal Thêm Phòng Tập Mới */}
+      {/* Modal Thêm Phòng Tập Mới (Apple HIG Modal) */}
       {showAddGymModal && (
-        <div className="fixed inset-0 z-50 bg-zinc-950/75 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="w-full max-w-md backdrop-blur-md bg-zinc-900/95 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="w-full max-w-md bg-zinc-950/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 flex flex-col gap-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <h3 className="font-display font-bold tracking-tight text-lg text-zinc-100">
                 Thêm Phòng Tập Mới
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddGymModal(false)}
-                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 active:scale-[0.96]"
+                title="Đóng modal"
+                aria-label="Đóng modal"
               >
-                <X className="w-5 h-5 stroke-[1.5]" />
+                <X className="w-5 h-5 stroke-[1.75]" />
               </button>
             </div>
 
             <form onSubmit={handleCreateCustomGym} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-zinc-400">
+                <label className="text-xs font-semibold text-zinc-200">
                   Tên phòng tập *
                 </label>
                 <input
@@ -604,18 +616,18 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   value={newGymName}
                   onChange={(e) => setNewGymName(e.target.value)}
                   placeholder="VD: Viking Gym & Fitness"
-                  className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-sm text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-500 focus:outline-none transition-all duration-200"
+                  className="w-full min-h-[44px] px-4 py-2 rounded-2xl bg-black/40 border border-white/10 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#E4483C] focus:outline-none transition-colors"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-zinc-400">
+                <label className="text-xs font-semibold text-zinc-200">
                   Tỉnh / Thành phố
                 </label>
                 <select
                   value={newGymCity}
                   onChange={(e) => setNewGymCity(e.target.value)}
-                  className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-sm text-zinc-100 focus:ring-2 focus:ring-zinc-500 focus:outline-none transition-all duration-200"
+                  className="w-full min-h-[44px] px-4 py-2 rounded-2xl bg-black/40 border border-white/10 text-sm text-zinc-100 focus:border-[#E4483C] focus:outline-none transition-colors"
                 >
                   <option value="Thanh Hóa">Thanh Hóa</option>
                   <option value="Hà Nội">Hà Nội</option>
@@ -625,7 +637,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-zinc-400">
+                <label className="text-xs font-semibold text-zinc-200">
                   Địa chỉ chi tiết *
                 </label>
                 <input
@@ -634,7 +646,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   value={newGymAddress}
                   onChange={(e) => setNewGymAddress(e.target.value)}
                   placeholder="VD: 45 Lê Hoàn, Phường Điện Biên"
-                  className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-sm text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-500 focus:outline-none transition-all duration-200"
+                  className="w-full min-h-[44px] px-4 py-2 rounded-2xl bg-black/40 border border-white/10 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-[#E4483C] focus:outline-none transition-colors"
                 />
               </div>
 
@@ -642,13 +654,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddGymModal(false)}
-                  className="min-h-[44px] px-4 py-2 rounded-xl border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                  className="apple-btn-secondary min-h-[44px] px-4 py-2 text-xs font-medium"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="min-h-[44px] px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-semibold shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                  className="apple-btn-accent min-h-[44px] px-5 py-2 text-xs font-semibold"
                 >
                   Lưu & Check-in Ngay
                 </button>

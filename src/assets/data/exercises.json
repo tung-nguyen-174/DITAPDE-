@@ -1,6 +1,27 @@
 {
   "exercises": [
     {
+      "name": "Pec Deck Fly",
+      "nameVn": "Ép ngực với máy",
+      "force": "push",
+      "level": "beginner",
+      "mechanic": "isolation",
+      "equipment": "machine",
+      "primaryMuscles": [
+        "middle chest"
+      ],
+      "secondaryMuscles": [
+        "shoulders"
+      ],
+      "instructions": [
+        "Sit on the Pec Deck machine with your back flat against the pad and adjust the seat height so the handles or arm pads are at middle-chest level.",
+        "Grip the handles or place your forearms against the pads with a slight bend in your elbows. This is your starting position.",
+        "Bring the handles together in a smooth arc in front of your chest while squeezing your middle chest (pectoralis major) at peak contraction.",
+        "Pause for 1 second at the center, then slowly return the arms back to the starting position under control until you feel a stretch across your chest."
+      ],
+      "category": "strength"
+    },
+    {
       "name": "3/4 Sit-Up",
       "force": "pull",
       "level": "beginner",
@@ -2429,7 +2450,7 @@
       "mechanic": "isolation",
       "equipment": "cable",
       "primaryMuscles": [
-        "quadriceps"
+        "adductors"
       ],
       "secondaryMuscles": [],
       "instructions": [
@@ -7393,9 +7414,11 @@
       "mechanic": "isolation",
       "equipment": "other",
       "primaryMuscles": [
+        "adductors"
+      ],
+      "secondaryMuscles": [
         "hamstrings"
       ],
-      "secondaryMuscles": [],
       "instructions": [
         "Lie on your back with your legs extended. Loop a belt, rope, or band around one of your feet, and swing that leg as far to the side as you can. This will be your starting position.",
         "Pull gently on the belt to create tension in your groin and hamstring muscles. Hold for 10-20 seconds, and repeat on the other side."

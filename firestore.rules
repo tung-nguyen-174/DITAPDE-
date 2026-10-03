@@ -66,7 +66,7 @@ service cloud.firestore {
 
     function isValidFeedPost(data) {
       return data.id is string && data.id.size() > 0 && data.id.size() <= 128
-        && data.userId is string && data.userId.size() <= 128 && data.userId == request.auth.uid
+        && data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128
         && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 100
         && data.title is string && data.title.size() > 0 && data.title.size() <= 150
         && data.totalTonnageKg is number && data.totalTonnageKg >= 0
@@ -113,12 +113,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId) && isValidId(userId) && (
         isValidHardenedUser(request.resource.data) ||
-        (isValidWebUserProfile(incoming()) && incoming().id == userId)
+        (isValidWebUserProfile(incoming()) && incoming().id == userId) ||
+        incoming().keys().hasOnly(['id', 'displayName', 'fcmToken', 'fcmTokens', 'lastWorkoutAt', 'updatedAt', 'lastTokenUpdate', 'friends', 'name', 'bio', 'gymVenue', 'isAnonymous', 'avatar', 'email', 'handle', 'streakWeeks', 'createdAt'])
       );
       allow update: if isOwner(userId) && isValidId(userId) && (
         isValidHardenedUser(request.resource.data) ||
-        (isValidWebUserProfile(incoming()) && incoming().id == existing().id) ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'fcmToken', 'fcmTokens', 'lastWorkoutAt', 'updatedAt', 'lastTokenUpdate', 'friends', 'name', 'bio', 'gymVenue', 'isAnonymous', 'avatar', 'email'])
+        (isValidWebUserProfile(incoming()) && (!('id' in existing()) || incoming().id == existing().id)) ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['id', 'displayName', 'fcmToken', 'fcmTokens', 'lastWorkoutAt', 'updatedAt', 'lastTokenUpdate', 'friends', 'name', 'bio', 'gymVenue', 'isAnonymous', 'avatar', 'email', 'handle', 'streakWeeks', 'createdAt'])
       );
       allow delete: if false;
 
@@ -169,7 +170,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(postId) && isValidFeedPost(incoming());
       allow update: if isSignedIn() && isValidId(postId) && (
         (existing().userId == request.auth.uid && isValidFeedPost(incoming()) && incoming().userId == existing().userId) ||
-        (incoming().diff(existing()).affectedKeys().hasOnly(['dapsCount', 'dappedBy', 'commentsCount', 'comments', 'forkCount']))
+        (incoming().diff(existing()).affectedKeys().hasOnly(['dapsCount', 'dappedBy', 'isDapped', 'commentsCount', 'comments', 'forkCount', 'title', 'caption', 'media', 'timestamp', 'createdAt']))
       );
       allow delete: if isSignedIn() && isValidId(postId) && existing().userId == request.auth.uid;
 
@@ -187,7 +188,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(postId) && isValidFeedPost(incoming());
       allow update: if isSignedIn() && isValidId(postId) && (
         (existing().userId == request.auth.uid && isValidFeedPost(incoming()) && incoming().userId == existing().userId) ||
-        (incoming().diff(existing()).affectedKeys().hasOnly(['dapsCount', 'dappedBy', 'commentsCount', 'comments', 'forkCount']))
+        (incoming().diff(existing()).affectedKeys().hasOnly(['dapsCount', 'dappedBy', 'isDapped', 'commentsCount', 'comments', 'forkCount', 'title', 'caption', 'media', 'timestamp', 'createdAt']))
       );
       allow delete: if isSignedIn() && isValidId(postId) && existing().userId == request.auth.uid;
     }

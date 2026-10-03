@@ -26,17 +26,19 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-zinc-950/75 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md"
       onClick={onClose}
     >
       <div
-        className="backdrop-blur-md bg-zinc-900/95 border border-zinc-800 rounded-2xl w-full max-w-md max-h-[88dvh] flex flex-col overflow-hidden shadow-2xl"
+        className="backdrop-blur-2xl bg-zinc-950/95 border border-white/10 rounded-3xl w-full max-w-md max-h-[88dvh] flex flex-col overflow-hidden shadow-2xl text-zinc-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 border-b border-zinc-800 flex items-center justify-between gap-3 shrink-0">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <Pencil className="w-5 h-5 text-emerald-400 stroke-[1.5]" />
+            <div className="apple-icon-badge-accent">
+              <Pencil className="w-5 h-5 stroke-[1.75]" />
+            </div>
             <h3 className="font-display font-bold tracking-tight text-lg text-zinc-100">
               Chỉnh sửa bài viết
             </h3>
@@ -45,9 +47,9 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Đóng chỉnh sửa"
-            className="min-w-[40px] min-h-[40px] w-10 h-10 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            className="w-10 h-10 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400"
           >
-            <X className="w-5 h-5 stroke-[1.5]" />
+            <X className="w-5 h-5 stroke-[1.75]" />
           </button>
         </div>
 
@@ -62,7 +64,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Nhập tiêu đề bài tập..."
-              className="w-full min-h-[44px] bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 transition-all duration-200"
+              className="apple-input w-full min-h-[44px] px-4 py-2 text-sm"
               required
             />
           </div>
@@ -76,7 +78,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
               onChange={(e) => setCaption(e.target.value)}
               rows={4}
               placeholder="Chia sẻ cảm xúc, mức tạ, mẹo tập luyện..."
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 resize-none transition-all duration-200"
+              className="apple-input w-full px-4 py-3 text-sm resize-none"
             />
           </div>
 
@@ -85,16 +87,16 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-100 bg-zinc-950 hover:bg-zinc-800/60 border border-zinc-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+              className="apple-btn-secondary min-h-[44px] px-4 py-2 text-xs font-medium"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={!title.trim()}
-              className="min-h-[44px] px-5 py-2 rounded-xl text-xs font-semibold text-zinc-950 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 transition-all duration-200 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+              className="apple-btn-primary min-h-[44px] px-5 py-2 text-xs font-semibold flex items-center gap-2 disabled:opacity-40"
             >
-              <Check className="w-4 h-4 stroke-[1.5]" />
+              <Check className="w-4 h-4 stroke-[1.75]" />
               <span>Lưu thay đổi</span>
             </button>
           </div>
