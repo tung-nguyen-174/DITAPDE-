@@ -761,12 +761,17 @@ function GymChuotAppContent() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-zinc-950 flex flex-col items-center justify-start text-zinc-100 selection:bg-[#E4483C] selection:text-white box-border overflow-x-hidden">
-      {/* Toast Notification */}
+    <div className="min-h-[100dvh] w-full bg-black flex flex-col items-center justify-start text-zinc-100 selection:bg-[#E4483C] selection:text-white box-border overflow-x-hidden">
+      {/* Toast Notification with Dynamic Island safe area offset */}
       {toast && (
-        <div className="fixed top-4 z-50 animate-in fade-in slide-in-from-top-4 duration-200 px-4 sm:px-6">
+        <div
+          className="fixed z-50 animate-in fade-in slide-in-from-top-4 duration-200 px-4 left-0 right-0 max-w-xl md:max-w-2xl mx-auto flex justify-center pointer-events-none"
+          style={{
+            top: 'max(16px, env(safe-area-inset-top, 16px))',
+          }}
+        >
           <div
-            className={`px-4 py-2.5 rounded-2xl border font-semibold text-xs tracking-tight flex items-center gap-2 backdrop-blur-xl shadow-xl shadow-black/25 ${
+            className={`px-4 py-2.5 rounded-2xl border font-semibold text-xs tracking-tight flex items-center gap-2 backdrop-blur-xl shadow-xl shadow-black/25 pointer-events-auto ${
               toast.type === 'cyan'
                 ? 'bg-[#3E8EDE]/90 text-white border-white/20'
                 : toast.type === 'green'
@@ -779,11 +784,11 @@ function GymChuotAppContent() {
         </div>
       )}
 
-      {/* Main Container: Automatically Responsive Full-Viewport Layout */}
-      <div className="w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-zinc-950 flex flex-col">
+      {/* Main Container: Native App Shell Constrained Viewport */}
+      <div className="w-full max-w-xl md:max-w-2xl h-[100dvh] max-h-[100dvh] overflow-hidden bg-zinc-950 flex flex-col shadow-2xl relative border-x border-white/5">
         {/* Render View according to currentScreen */}
         {currentScreen === 'logger' && activeSession ? (
-          <div className="flex-1 min-h-0 overflow-y-auto scroll-touch">
+          <div className="flex-1 min-h-0 overflow-y-auto scroll-touch overscroll-y-contain">
             <ActiveLoggerScreen
               session={activeSession}
               onUpdateSession={(updated) => {
@@ -799,7 +804,7 @@ function GymChuotAppContent() {
             />
           </div>
         ) : currentScreen === 'summary' && completedSession ? (
-          <div className="flex-1 min-h-0 overflow-y-auto scroll-touch">
+          <div className="flex-1 min-h-0 overflow-y-auto scroll-touch overscroll-y-contain">
             <SummaryScreen
               session={completedSession}
               onPublishToFeed={handlePublishToFeed}
