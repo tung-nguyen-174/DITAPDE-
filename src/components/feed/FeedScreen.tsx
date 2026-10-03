@@ -499,7 +499,7 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
             return (
               <article
                 key={post.id}
-                className="w-full apple-card-interactive p-6 sm:p-8 flex flex-col gap-6 relative"
+                className="w-full apple-card-interactive p-5 sm:p-8 flex flex-col gap-6 relative"
               >
                 {/* Card Header */}
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -852,13 +852,14 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                 )}
 
                 {/* Card Footer Actions */}
-                <div className="pt-4 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-2 sm:gap-3 w-full">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="pt-4 border-t border-white/[0.08] flex flex-nowrap items-center justify-between gap-2 sm:gap-3 w-full">
+                  <div className="flex items-center gap-2 shrink-0">
                     {/* Daps Button (Apple HIG pill with subtle glow & active state) */}
                     <button
                       type="button"
                       onClick={() => handleDapClick(post.id)}
-                      className={`relative h-10 px-3.5 py-1.5 rounded-2xl border transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap select-none shadow-xs ${
+                      aria-label={`${post.dapsCount} Daps`}
+                      className={`relative h-10 px-3.5 rounded-2xl border transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap select-none shadow-xs ${
                         post.isDapped
                           ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400 shadow-sm shadow-emerald-500/10'
                           : 'backdrop-blur-md bg-white/[0.06] hover:bg-white/[0.12] border-white/10 text-zinc-100'
@@ -874,7 +875,8 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                           isAnimatingDap ? 'scale-105' : ''
                         }`}
                       >
-                        {post.dapsCount} Daps
+                        {post.dapsCount}
+                        <span className="hidden min-[400px]:inline"> Daps</span>
                       </span>
                     </button>
 
@@ -882,7 +884,7 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => setCommentModalPost(post)}
-                      className="apple-btn-secondary h-10 px-3.5 py-1.5 rounded-2xl text-xs font-medium inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap active:scale-[0.96]"
+                      className="apple-btn-secondary h-10 px-3.5 rounded-2xl text-xs font-medium inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap active:scale-[0.96]"
                       title="Mở bình luận"
                     >
                       <MessageSquare className="w-4 h-4 text-zinc-400 stroke-[1.75] shrink-0" />
@@ -894,7 +896,7 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => handleFork(post)}
-                    className={`h-10 px-4 py-1.5 rounded-2xl text-xs font-semibold border transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 inline-flex items-center justify-center gap-1.5 w-auto max-w-fit shrink-0 whitespace-nowrap ml-auto shadow-xs ${
+                    className={`h-10 px-3.5 sm:px-4 rounded-2xl text-xs font-semibold border transition-all duration-200 ease-out active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-zinc-400 inline-flex items-center justify-center gap-1.5 min-w-0 whitespace-nowrap ml-auto shadow-xs ${
                       isForked
                         ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
                         : 'backdrop-blur-md bg-white/[0.06] text-zinc-100 hover:bg-white/[0.12] border-white/10'
@@ -905,9 +907,9 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({
                     ) : (
                       <GitFork className="w-4 h-4 text-emerald-400 stroke-[1.75] shrink-0" />
                     )}
-                    <span>{isForked ? 'Đã lưu' : 'Xin lịch'}</span>
+                    <span className="leading-none">{isForked ? 'Đã lưu' : 'Xin lịch'}</span>
                     {!isForked && (
-                      <span className="text-[11px] text-zinc-400 font-display tabular-nums">
+                      <span className="pl-0.5 text-[11px] leading-none text-zinc-400 font-display tabular-nums">
                         {post.forkCount}
                       </span>
                     )}
